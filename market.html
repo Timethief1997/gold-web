@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <title>黄金市场看板</title>
+  <link rel="stylesheet" href="market.css?v=9">
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div class="header-top">
+        <h1>黄金市场看板</h1>
+        <span class="header-status" id="headerStatus">连接中…</span>
+      </div>
+      <div class="header-sub">
+        <span id="lastUpdate">--</span>
+        <span class="refresh-setting" id="btnRefreshSetting">自动刷新 60秒 ▾</span>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <!-- 实时金价 -->
+      <section class="card price-section">
+        <div class="section-title">
+          <span>实时金价</span>
+          <span class="price-refresh" id="btnRefresh">刷新</span>
+        </div>
+        <div class="price-grid">
+          <div class="price-cell gold-main">
+            <div class="cell-name">现货·伦敦金</div>
+            <div class="cell-value" id="xauPrice">--</div>
+            <div class="cell-unit">美元/盎司</div>
+            <div class="cell-change" id="xauChange">--</div>
+          </div>
+          <div class="price-cell">
+            <div class="cell-name">期货·COMEX</div>
+            <div class="cell-value" id="gcPrice">--</div>
+            <div class="cell-unit">美元/盎司</div>
+            <div class="cell-change" id="gcChange">--</div>
+          </div>
+          <div class="price-cell">
+            <div class="cell-name">现货·Au9999</div>
+            <div class="cell-value" id="sgePrice">--</div>
+            <div class="cell-unit">元/克</div>
+            <div class="cell-change" id="sgeChange">--</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 走势图 -->
+      <section class="card">
+        <div class="section-title">
+          <span>金价走势</span>
+          <span class="chart-period" id="chartPeriod">
+            <span class="period-item active" data-period="30">30天</span>
+            <span class="period-item" data-period="90">90天</span>
+            <span class="period-item" data-period="180">半年</span>
+          </span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="priceChart"></canvas>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-item sge"><i></i>期货·沪金AU0（元/克）</span>
+          <span class="legend-item comex"><i></i>现货·伦敦金（美元/盎司）</span>
+          <span class="legend-item gc"><i></i>期货·COMEX（美元/盎司）</span>
+        </div>
+
+        <div class="chart-insight" id="chartInsight">
+          <div class="insight-title">📍 点击图表任意日期，以该日为观察点解读所在区间</div>
+          <div class="insight-body">展示该观察点所处时间区间内的价格表现、已发生事件的持续影响，以及市场对未来事件的预期定价。</div>
+        </div>
+      </section>
+
+      <!-- 影响金价的因素 -->
+      <section class="card">
+        <div class="section-title">
+          <span>影响金价的核心因素</span>
+          <span class="factor-hint">实时/参考</span>
+        </div>
+
+        <div class="factor-grid">
+          <div class="factor-card" id="factor-dxy">
+            <div class="factor-head">
+              <span class="factor-name">美元指数 DXY</span>
+              <span class="factor-badge neg">负相关</span>
+            </div>
+            <div class="factor-value" id="dxyValue">--</div>
+            <div class="factor-change" id="dxyChange">--</div>
+            <div class="factor-desc" id="dxyDesc">加载中…</div>
+          </div>
+
+          <div class="factor-card" id="factor-us10y">
+            <div class="factor-head">
+              <span class="factor-name">美债10年期收益率</span>
+              <span class="factor-badge neg">负相关</span>
+            </div>
+            <div class="factor-value" id="us10yValue">--</div>
+            <div class="factor-change" id="us10yChange">--</div>
+            <div class="factor-desc" id="us10yDesc">加载中…</div>
+          </div>
+
+          <div class="factor-card" id="factor-real">
+            <div class="factor-head">
+              <span class="factor-name">美国实际利率</span>
+              <span class="factor-badge neg">负相关</span>
+            </div>
+            <div class="factor-value" id="realValue">--</div>
+            <div class="factor-change" id="realChange">--</div>
+            <div class="factor-desc" id="realDesc">10Y名义收益率 − 通胀预期</div>
+          </div>
+
+          <div class="factor-card" id="factor-usdcny">
+            <div class="factor-head">
+              <span class="factor-name">美元兑人民币</span>
+              <span class="factor-badge pos">联动</span>
+            </div>
+            <div class="factor-value" id="usdcnyValue">--</div>
+            <div class="factor-change" id="usdcnyChange">--</div>
+            <div class="factor-desc" id="usdcnyDesc">加载中…</div>
+          </div>
+
+          <div class="factor-card" id="factor-oil">
+            <div class="factor-head">
+              <span class="factor-name">WTI 原油</span>
+              <span class="factor-badge pos">通胀预期</span>
+            </div>
+            <div class="factor-value" id="oilValue">--</div>
+            <div class="factor-change" id="oilChange">--</div>
+            <div class="factor-desc" id="oilDesc">加载中…</div>
+          </div>
+
+          <div class="factor-card" id="factor-silver">
+            <div class="factor-head">
+              <span class="factor-name">COMEX 白银</span>
+              <span class="factor-badge pos">联动</span>
+            </div>
+            <div class="factor-value" id="silverValue">--</div>
+            <div class="factor-change" id="silverChange">--</div>
+            <div class="factor-desc" id="silverDesc">加载中…</div>
+          </div>
+
+          <div class="factor-card" id="factor-fed">
+            <div class="factor-head">
+              <span class="factor-name">美联储政策利率</span>
+              <span class="factor-badge neg">负相关</span>
+            </div>
+            <div class="factor-value" id="fedValue">3.50–3.75%</div>
+            <div class="factor-change" id="fedChange">参考值</div>
+            <div class="factor-desc" id="fedDesc">7月FOMC维持，市场关注9月决议</div>
+          </div>
+
+          <div class="factor-card" id="factor-cpi">
+            <div class="factor-head">
+              <span class="factor-name">美国 CPI 同比</span>
+              <span class="factor-badge pos">通胀</span>
+            </div>
+            <div class="factor-value" id="cpiValue">3.4%</div>
+            <div class="factor-change" id="cpiChange">7月参考</div>
+            <div class="factor-desc" id="cpiDesc">核心CPI 2.5%，PCE约3.7%</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 今日金市动态 -->
+      <section class="card">
+        <div class="section-title">
+          <span>📰 今日金市动态</span>
+          <span class="factor-hint" id="newsHint">自动捕捉 · 30分钟更新</span>
+        </div>
+
+        <div class="today-events" id="todayEvents">
+          <div class="insight-empty">正在加载近期事件…</div>
+        </div>
+
+        <div class="news-head">
+          <span>实时快讯</span>
+          <span class="news-meta" id="newsMeta"></span>
+        </div>
+        <div class="news-list" id="newsList">
+          <div class="news-loading">正在捕捉与黄金相关的实时快讯…</div>
+        </div>
+      </section>
+
+      <!-- 因素详解 -->
+      <section class="card">
+        <div class="section-title">
+          <span>为什么这些因素影响金价</span>
+        </div>
+        <div class="explain-list" id="explainList">
+          <div class="explain-item">
+            <div class="explain-title"><span class="dot dot-neg"></span>美元指数（负相关）</div>
+            <div class="explain-body">黄金以美元计价，美元走强→黄金变贵→需求下降→金价承压；美元走弱则利好金价。</div>
+          </div>
+          <div class="explain-item">
+            <div class="explain-title"><span class="dot dot-neg"></span>美债实际收益率（负相关）</div>
+            <div class="explain-body">实际收益率 = 名义收益率 − 通胀预期。实际收益率上升意味着持有黄金的机会成本增加，资金转向美债，金价承压。</div>
+          </div>
+          <div class="explain-item">
+            <div class="explain-title"><span class="dot dot-pos"></span>通胀预期（正相关）</div>
+            <div class="explain-body">黄金是传统抗通胀资产。CPI/PCE 上行或通胀预期升温时，避险资金流入黄金，推升金价。</div>
+          </div>
+          <div class="explain-item">
+            <div class="explain-title"><span class="dot dot-pos"></span>美联储货币政策（负相关）</div>
+            <div class="explain-body">降息周期→实际利率下行→利好金价；加息周期则相反。政策预期（FedWatch）比当前利率本身更影响金价。</div>
+          </div>
+          <div class="explain-item">
+            <div class="explain-title"><span class="dot dot-pos"></span>地缘政治与避险情绪（正相关）</div>
+            <div class="explain-body">战争、贸易摩擦、债务危机等不确定性升高时，黄金作为"安全资产"被抢购，短期脉冲式上涨。</div>
+          </div>
+          <div class="explain-item">
+            <div class="explain-title"><span class="dot dot-pos"></span>原油与商品通胀（正相关）</div>
+            <div class="explain-body">油价上涨→输入性通胀→通胀预期升温→金价获支撑；同时原油与黄金同属大宗商品，风险偏好联动。</div>
+          </div>
+          <div class="explain-item">
+            <div class="explain-title"><span class="dot dot-pos"></span>央行购金与供需（正相关）</div>
+            <div class="explain-body">全球央行连续多年净购金（尤其中国、印度等），构成长期需求支撑，是金价慢牛的底层逻辑。</div>
+          </div>
+          <div class="explain-item">
+            <div class="explain-title"><span class="dot dot-neg"></span>美元兑人民币（国内金价）</div>
+            <div class="explain-body">人民币贬值→以人民币计价的国内金价（元/克）相对国际金价（美元/盎司）更贵，反之更便宜。</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="disclaimer">
+        数据来源：腾讯财经、新浪财经、Frankfurter、k780、美国财政部、东方财富数据中心。实时数据可能存在延迟，宏观数据为官方最新公布值，仅供学习参考，不构成投资建议。
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="market.js?v=12"></script>
+</body>
+</html>

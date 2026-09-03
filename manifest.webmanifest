@@ -1,0 +1,26 @@
+{
+  "name": "黄金看板 · 市场与投资助手",
+  "short_name": "黄金看板",
+  "description": "实时金价、30天走势、影响因素与持仓记录，可离线打开",
+  "lang": "zh-CN",
+  "start_url": "./gold-local.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f5",
+  "theme_color": "#1a1a2e",
+  "icons": [
+    {
+      "src": "icon-512.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

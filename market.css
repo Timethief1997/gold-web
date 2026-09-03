@@ -1,0 +1,640 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --gold: #d4af37;
+  --gold-light: #f4d03f;
+  --dark: #1a1a2e;
+  --dark-2: #16213e;
+  --up: #e64340;
+  --down: #07c160;
+  --bg: #f5f5f5;
+  --text: #333333;
+  --text-light: #888888;
+  --card: #ffffff;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+#app {
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+/* ============ Header ============ */
+.app-header {
+  background: linear-gradient(135deg, var(--dark) 0%, var(--dark-2) 100%);
+  color: #fff;
+  padding: 16px 20px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-top h1 {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.header-status {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  text-align: right;
+  width: 60px;
+}
+
+.header-status.online {
+  background: rgba(7, 193, 96, 0.25);
+  color: #7dffb0;
+}
+
+.header-status.offline {
+  background: rgba(230, 67, 64, 0.25);
+  color: #ffb0ae;
+}
+
+.header-sub {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 6px;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  align-items: center;
+}
+
+.refresh-setting {
+  cursor: pointer;
+  color: var(--gold, #d4af37);
+  opacity: 1;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  border-radius: 10px;
+  padding: 1px 8px;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.refresh-setting:active {
+  opacity: 0.6;
+}
+
+.app-main {
+  padding: 14px;
+}
+
+/* ============ Card / Section ============ */
+.card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.section-title .factor-hint {
+  font-size: 12px;
+  color: var(--text-light);
+  font-weight: 400;
+}
+
+.price-refresh {
+  font-size: 13px;
+  color: var(--gold);
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.price-refresh:active {
+  opacity: 0.6;
+}
+
+/* ============ Price Grid ============ */
+.price-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.price-cell {
+  background: #fafafa;
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+  border: 1px solid #f0f0f0;
+}
+
+.price-cell.gold-main {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, var(--dark) 0%, var(--dark-2) 100%);
+  border: none;
+}
+
+.cell-name {
+  font-size: 13px;
+  color: var(--text-light);
+  margin-bottom: 6px;
+}
+
+.gold-main .cell-name {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.cell-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.gold-main .cell-value {
+  font-size: 40px;
+  color: var(--gold-light);
+}
+
+.cell-unit {
+  font-size: 12px;
+  color: var(--text-light);
+  margin: 2px 0 6px;
+}
+
+.gold-main .cell-unit {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.cell-change {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.gold-main .cell-change {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ============ Chart ============ */
+.chart-wrap {
+  position: relative;
+  height: 240px;
+  margin-bottom: 10px;
+}
+
+.period-item {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #f5f5f5;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.period-item.active {
+  background: var(--gold);
+  color: #fff;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.chart-legend .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.chart-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.legend-item.sge i {
+  background: var(--gold);
+}
+
+.legend-item.comex i {
+  background: #1e88e5;
+}
+
+.legend-item.gc i {
+  background: #7e57c2;
+}
+
+/* ============ Chart Insight ============ */
+.chart-insight {
+  margin-top: 14px;
+  padding: 14px;
+  background: linear-gradient(135deg, #faf8f0 0%, #fff 100%);
+  border: 1px solid #f0e6c8;
+  border-radius: 12px;
+  min-height: 80px;
+  transition: all 0.2s;
+}
+
+.chart-insight.has-event {
+  background: #fff;
+  border-color: #d4af37;
+}
+
+.insight-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.insight-date {
+  font-size: 12px;
+  color: var(--text-light);
+  font-weight: 400;
+}
+
+.insight-body {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.7;
+}
+
+.insight-body p {
+  margin-bottom: 8px;
+}
+
+.insight-body p:last-child {
+  margin-bottom: 0;
+}
+
+.insight-tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-right: 6px;
+  font-weight: 500;
+}
+
+.insight-tag.bull {
+  background: rgba(212, 175, 55, 0.15);
+  color: #b8860b;
+}
+
+.insight-tag.bear {
+  background: rgba(30, 136, 229, 0.12);
+  color: #1e88e5;
+}
+
+.insight-tag.neutral {
+  background: #f0f0f0;
+  color: #888;
+}
+
+/* ============ 今日金市动态 ============ */
+.today-events {
+  margin-bottom: 4px;
+}
+
+.event-item {
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 10px;
+  border: 1px solid #f0f0f0;
+  margin-bottom: 10px;
+}
+
+.event-item:last-child {
+  margin-bottom: 0;
+}
+
+.event-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.event-date {
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.event-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.event-desc {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.7;
+  margin-bottom: 6px;
+}
+
+.event-logic {
+  font-size: 12.5px;
+  color: #555;
+  line-height: 1.7;
+  background: #fff;
+  border-left: 3px solid var(--gold);
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.event-toggle {
+  font-size: 12px;
+  color: var(--gold);
+  cursor: pointer;
+  user-select: none;
+}
+
+.news-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 14px 0 6px;
+}
+
+.news-meta {
+  font-size: 11px;
+  color: var(--text-light);
+  font-weight: 400;
+}
+
+.news-list {
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.news-item {
+  display: flex;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f2f2f2;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.news-item:last-child {
+  border-bottom: none;
+}
+
+.news-time {
+  flex: 0 0 42px;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 600;
+  padding-top: 1px;
+}
+
+.news-text {
+  color: #444;
+}
+
+.news-loading,
+.news-empty {
+  color: #999;
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.insight-empty {
+  color: #999;
+  font-size: 13px;
+}
+
+.insight-block {
+  margin-bottom: 14px;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 10px;
+  border: 1px solid #f0f0f0;
+}
+
+.insight-block:last-child {
+  margin-bottom: 0;
+}
+
+.block-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.insight-block p {
+  margin-bottom: 6px;
+}
+
+.insight-block p.sub {
+  margin-left: 12px;
+  color: #666;
+  font-size: 13px;
+}
+
+.insight-block p.logic {
+  margin-left: 12px;
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: rgba(212, 175, 55, 0.06);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 6px 6px 0;
+  color: #5a4d1a;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.insight-block p.hint {
+  color: #b8860b;
+  font-size: 12px;
+  background: rgba(212, 175, 55, 0.08);
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.insight-block p.empty {
+  color: #999;
+  font-size: 13px;
+}
+
+/* ============ Factor Grid ============ */
+.factor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.factor-card {
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.factor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.factor-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.factor-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 400;
+}
+
+.factor-badge.neg {
+  background: rgba(30, 136, 229, 0.12);
+  color: #1e88e5;
+}
+
+.factor-badge.pos {
+  background: rgba(212, 175, 55, 0.15);
+  color: #b8860b;
+}
+
+.factor-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 2px;
+}
+
+.factor-change {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.factor-desc {
+  font-size: 11px;
+  color: var(--text-light);
+  line-height: 1.45;
+}
+
+/* ============ Explain ============ */
+.explain-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #f2f2f2;
+}
+
+.explain-item:last-child {
+  border-bottom: none;
+}
+
+.explain-title {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.explain-body {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+  padding-left: 18px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.dot-pos {
+  background: var(--gold);
+}
+
+.dot-neg {
+  background: #1e88e5;
+}
+
+.disclaimer {
+  font-size: 11px;
+  color: #aaa;
+  line-height: 1.6;
+  padding: 4px 6px 24px;
+}
+
+/* ============ Price Color ============ */
+.price-up {
+  color: var(--up);
+}
+
+.price-down {
+  color: var(--down);
+}
+
+/* ============ Skeleton ============ */
+.skeleton {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@media (max-width: 380px) {
+  .factor-grid {
+    grid-template-columns: 1fr;
+  }
+}

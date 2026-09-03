@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a1a2e"/>
+      <stop offset="1" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7d96b"/>
+      <stop offset="0.5" stop-color="#f4d03f"/>
+      <stop offset="1" stop-color="#d4af37"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7ef9a8"/>
+      <stop offset="1" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="168" fill="#f4d03f" opacity="0.12"/>
+  <circle cx="256" cy="256" r="140" fill="url(#coin)" stroke="#b8860b" stroke-width="10"/>
+  <text x="256" y="292" font-family="'PingFang SC','Microsoft YaHei',sans-serif" font-size="150" font-weight="700" fill="#6b4e0a" text-anchor="middle">金</text>
+  <path d="M150 268 L214 268 L238 214 L280 306 L306 250 L362 250" fill="none" stroke="url(#line)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

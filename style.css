@@ -1,0 +1,702 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --gold: #d4af37;
+  --gold-light: #f4d03f;
+  --dark: #1a1a2e;
+  --dark-2: #16213e;
+  --red: #e64340;
+  --green: #07c160;
+  --bg: #f5f5f5;
+  --text: #333333;
+  --text-light: #888888;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+#app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-bottom: 80px;
+}
+
+.app-header {
+  background: linear-gradient(135deg, var(--dark) 0%, var(--dark-2) 100%);
+  color: #fff;
+  padding: 16px 20px;
+  text-align: center;
+  position: relative;
+}
+
+.app-header h1 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.app-main {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, var(--dark) 0%, var(--dark-2) 100%);
+  color: #fff;
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.section-title .more {
+  font-size: 14px;
+  color: var(--gold);
+  font-weight: 400;
+  cursor: pointer;
+}
+
+/* 首页金价 */
+.price-card {
+  cursor: pointer;
+}
+
+.price-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.price-label {
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.price-tag {
+  font-size: 12px;
+  padding: 3px 10px;
+  background: rgba(212, 175, 55, 0.2);
+  color: var(--gold);
+  border-radius: 12px;
+}
+
+.price-value {
+  font-size: 48px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.price-value .currency {
+  font-size: 28px;
+  margin-right: 4px;
+}
+
+.price-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.edit-hint {
+  color: var(--gold);
+}
+
+/* 双数据源 */
+.data-source-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.source-card {
+  flex: 1;
+  padding: 16px;
+}
+
+.source-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.source-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.source-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.source-ok {
+  background: rgba(7, 193, 96, 0.1);
+  color: var(--green);
+}
+
+.source-fail {
+  background: rgba(136, 136, 136, 0.1);
+  color: var(--text-light);
+}
+
+.source-price {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.currency-small {
+  font-size: 14px;
+  margin-right: 2px;
+}
+
+.source-unit {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 6px;
+}
+
+.source-change {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.source-empty {
+  font-size: 24px;
+  color: #ccc;
+  padding: 16px 0;
+  text-align: center;
+}
+
+/* 持仓概览 */
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.summary-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-item .label {
+  font-size: 13px;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+
+.summary-item .value {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.gold-text {
+  color: var(--gold);
+}
+
+.divider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 16px 0;
+}
+
+.profit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profit-row .label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+
+.profit-value {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.profit-rate {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.total-profit-row {
+  margin-top: 14px;
+}
+
+.realized-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.price-up {
+  color: var(--red);
+}
+
+.price-down {
+  color: var(--green);
+}
+
+/* 按钮 */
+.action-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.btn {
+  flex: 1;
+  height: 48px;
+  border: none;
+  border-radius: 24px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+  color: var(--dark);
+}
+.btn-secondary {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid #e0e0e0;
+}
+
+.auto-refresh-btn {
+  width: 100%;
+}
+
+/* 金价走势图表 */
+.chart-card {
+  padding: 16px;
+}
+
+.chart-card .section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.chart-period {
+  display: flex;
+  gap: 8px;
+}
+
+.period-item {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #f5f5f5;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.period-item.active {
+  background: var(--gold);
+  color: #fff;
+}
+
+.chart-wrap {
+  position: relative;
+  height: 240px;
+  margin-bottom: 10px;
+}
+
+.chart-legend {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  font-size: 12px;
+  color: #666;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-item i {
+  display: inline-block;
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.legend-item.sge i {
+  background: var(--gold);
+}
+
+.legend-item.spot i {
+  background: #1e88e5;
+}
+
+.legend-item.comex i {
+  background: #7e57c2;
+}
+
+.btn-danger {
+  background: #fff;
+  color: var(--red);
+  border: 1px solid var(--red);
+}
+
+/* 记录列表 */
+.record-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+}
+
+.record-item:last-child {
+  border-bottom: none;
+}
+
+.record-left {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.record-type {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #fff;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.type-buy {
+  background: var(--red);
+}
+
+.type-sell {
+  background: var(--green);
+}
+
+.type-holding {
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  color: var(--dark);
+}
+
+.holding-record {
+  background: #fdf9ec;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border-bottom: none;
+}
+
+.record-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.record-date {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+
+.record-detail {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+.record-remark {
+  font-size: 12px;
+  color: #999;
+}
+
+.record-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.record-amount {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.record-fee {
+  font-size: 12px;
+  color: #999;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 50px 20px;
+  color: #999;
+  font-size: 14px;
+}
+
+.count {
+  font-size: 14px;
+  color: var(--text-light);
+  font-weight: 400;
+}
+
+/* 表单 */
+.form-card {
+  padding: 8px 20px;
+}
+
+.form-item {
+  display: flex;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.form-item:last-child {
+  border-bottom: none;
+}
+
+.form-label {
+  width: 110px;
+  font-size: 15px;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+input, select {
+  flex: 1;
+  font-size: 15px;
+  color: var(--text);
+  text-align: right;
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+.picker-value {
+  flex: 1;
+  font-size: 15px;
+  color: var(--text);
+  text-align: right;
+}
+
+.radio-group {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 20px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.radio-text {
+  margin-left: 6px;
+  font-size: 15px;
+  color: #666;
+}
+
+.radio-text.active-buy {
+  color: var(--red);
+  font-weight: 600;
+}
+
+.radio-text.active-sell {
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* 记一笔：模式切换 */
+.mode-seg {
+  display: flex;
+  background: #f2f2f2;
+  border-radius: 12px;
+  padding: 4px;
+  margin: 12px 0 4px;
+}
+
+.mode-item {
+  flex: 1;
+  height: 36px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-item.active {
+  background: #fff;
+  color: var(--dark);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-hint {
+  padding: 12px 0;
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.save-btn {
+  width: 100%;
+  margin-top: 24px;
+}
+
+/* 底部导航 */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  height: 60px;
+  z-index: 100;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.tab-item.active {
+  color: var(--gold);
+}
+
+.tab-icon {
+  font-size: 20px;
+  margin-bottom: 2px;
+}
+
+.tab-text {
+  font-size: 12px;
+}
+
+/* 弹窗 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  width: 80%;
+  max-width: 320px;
+}
+
+.modal-title {
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 15px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.modal-actions .btn {
+  flex: 1;
+}
+
+.loading {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--dark);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 6px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
