@@ -534,6 +534,8 @@ async function renderHome() {
         <span class="legend-item spot"><i></i>现货·伦敦金</span>
         <span class="legend-item comex"><i></i>期货·COMEX</span>
         <span class="legend-item sge"><i></i>期货·沪金AU0</span>
+        ${getRecords().some(r => r.type === 'buy') ? '<span class="legend-item buy"><i></i>买入</span>' : ''}
+        ${getRecords().some(r => r.type === 'sell') ? '<span class="legend-item sell"><i></i>卖出</span>' : ''}
       </div>
     </div>
 
@@ -680,6 +682,55 @@ function renderChart(period = 30) {
     })
   }
 
+  // 买卖记录点：在走势图上用不同颜色小点标记用户操作，便于复盘
+  const records = getRecords()
+  const buyPoints = []
+  const sellPoints = []
+  const buyDayCount = {}
+  const sellDayCount = {}
+  auSlice.forEach((item, index) => {
+    const dayRecords = records.filter(r => r.date === item.date && (r.type === 'buy' || r.type === 'sell'))
+    dayRecords.forEach(r => {
+      const target = r.type === 'buy' ? buyPoints : sellPoints
+      const countMap = r.type === 'buy' ? buyDayCount : sellDayCount
+      const n = countMap[index] || 0
+      countMap[index] = n + 1
+      // 仅同一天多笔同类型时微偏移 ±0.2%，单笔记录保持原始价格
+      const offset = n === 0 ? 0 : (n % 2 === 1 ? -0.002 * r.price : 0.002 * r.price)
+      target.push({ x: index, y: r.price + offset })
+    })
+  })
+
+  if (buyPoints.length) {
+    datasets.push({
+      label: '买入',
+      data: buyPoints,
+      backgroundColor: 'rgba(7, 193, 96, 0.9)',
+      borderColor: 'rgba(7, 193, 96, 0.9)',
+      pointStyle: 'circle',
+      pointRadius: 5,
+      pointHoverRadius: 8,
+      yAxisID: 'y',
+      showLine: false,
+      order: 1
+    })
+  }
+
+  if (sellPoints.length) {
+    datasets.push({
+      label: '卖出',
+      data: sellPoints,
+      backgroundColor: 'rgba(230, 67, 64, 0.9)',
+      borderColor: 'rgba(230, 67, 64, 0.9)',
+      pointStyle: 'circle',
+      pointRadius: 5,
+      pointHoverRadius: 8,
+      yAxisID: 'y',
+      showLine: false,
+      order: 1
+    })
+  }
+
   priceChart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -699,7 +750,11 @@ function renderChart(period = 30) {
         },
         tooltip: {
           callbacks: {
-            label: context => `${context.dataset.label}: ${formatMoney(context.raw)}`
+            label: context => {
+              const raw = context.raw
+              const val = raw && typeof raw === 'object' ? raw.y : raw
+              return `${context.dataset.label}: ${formatMoney(val)}`
+            }
           }
         }
       },

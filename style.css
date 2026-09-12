@@ -379,6 +379,20 @@ body {
   background: #7e57c2;
 }
 
+.legend-item.buy i {
+  background: var(--green);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legend-item.sell i {
+  background: var(--red);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
 .btn-danger {
   background: #fff;
   color: var(--red);
