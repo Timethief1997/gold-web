@@ -192,9 +192,14 @@ async function fetchLondonPrice() {
 }
 
 async function fetchUsdCny() {
-  const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD')
-  const data = await res.json()
-  return parseFloat(data.rates.CNY)
+  // 腾讯行情 whUSDCNY：盘中实时汇率，~ 分隔，3=现价
+  const res = await fetch('https://qt.gtimg.cn/q=whUSDCNY')
+  const text = await res.text()
+  const match = text.match(/v_whUSDCNY="([^"]*)"/)
+  if (!match) throw new Error('USDCNY parse failed')
+  const price = parseFloat(match[1].split('~')[3])
+  if (!price) throw new Error('USDCNY empty')
+  return price
 }
 
 function convertUsdPerOunceToCnyPerGram(usdPerOunce, usdCny) {
