@@ -746,11 +746,7 @@ body {
           </span>
         </div>
         <div class="chart-wrap">
-          <canvas id="priceChart"></canvas><div id="chartRetry" style="display:none;text-align:center;margin-top:12px;">
-  <button onclick="window.parent ? document.getElementById('frmMarket').contentWindow.loadHistory() : loadHistory()"
-          style="background:#d4af37;color:#fff;border:none;border-radius:20px;padding:8px 20px;font-size:13px;cursor:pointer;">🔄 重新加载行情</button>
-  <p style="color:#aaa;font-size:11px;margin-top:8px;margin-bottom:0;">如持续失败，请换 WiFi 或刷新页面</p>
-</div>
+          <canvas id="priceChart"></canvas>
         </div>
         <div class="chart-legend">
           <span class="legend-item sge"><i></i>期货·沪金AU0（元/克）</span>
@@ -1713,166 +1709,1868 @@ async function refreshAll() {
   refreshLock = false
 }
 
-// ============ 渲染// ============ 渲染 ============
-function renderPrices(data) {
-  // 伦敦金
-  if (data.xau) {
-    setText('xauPrice', fmt(data.xau.price))
-    applyChange($('xauChange'), data.xau.changePercent)
-    $('xauChange').textContent = (data.xau.changePercent >= 0 ? '+' : '') + fmt(data.xau.changePercent) + '%'
+// ============ 图表 ============
+function renderChart(period = 30) {
+  const canvas = $('priceChart')
+  if (!canvas) return
+  if (!sgeHistoryData) {
+    const ctx = canvas.getContext('2d')
+    const w = canvas.width, h = canvas.height
+    ctx.clearRect(0, 0, w, h)
+    ctx.fillStyle = '#f5f5f5'
+    ctx.fillRect(0, 0, w, h)
+    ctx.fillStyle = '#888'
+    ctx.font = '14px -apple-system, PingFang SC, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('📡 行情数据暂不可用', w / 2, h / 2 - 12)
+    ctx.fillStyle = '#aaa'
+    ctx.font = '12px -apple-system, PingFang SC, sans-serif'
+    ctx.fillText('下拉刷新或检查网络后重试', w / 2, h / 2 + 10)
+    return
   }
-  // COMEX
-  if (data.gc) {
-    setText('gcPrice', fmt(data.gc.price))
-    applyChange($('gcChange'), data.gc.changePercent)
-    $('gcChange').textContent = (data.gc.changePercent >= 0 ? '+' : '') + fmt(data.gc.changePercent) + '%'
-  }
-  // 上交所
-  if (data.sge) {
-    setText('sgePrice', fmt(data.sge.price))
-    applyChange($('sgeChange'), data.sge.changePercent)
-    $('sgeChange').textContent = (data.sge.changePercent >= 0 ? '+' : '') + fmt(data.sge.changePercent) + '%' + (data.sge.fallback ? '（参考）' : '')
-    $('sgePrice').title = data.sge.fallback ? 'k780 限流，已用伦敦金×汇率换算的参考价' : ''
-  }
-  // 美元指数
-  if (data.dxy) {
-    setText('dxyValue', fmt(data.dxy.now, 1))
-    applyChange($('dxyChange'), data.dxy.changePct)
-    $('dxyChange').textContent = '较上日 ' + fmtSign(data.dxy.change, 2) + '（' + fmtSign(data.dxy.changePct, 2) + '%）'
-    $('dxyDesc').textContent = data.dxy.changePct < 0 ? '美元走弱，对金价构成支撑' : '美元走强，对金价构成压力'
-  }
-  // 美元兑人民币
-  if (data.usdcny) {
-    setText('usdcnyValue', fmt(data.usdcny.price, 4))
-    applyChange($('usdcnyChange'), data.usdcny.changePercent)
-    $('usdcnyChange').textContent = fmtSign(data.usdcny.changePercent, 2) + '%'
-    $('usdcnyDesc').textContent = data.usdcny.changePercent < 0
-      ? '人民币升值，压制国内金价（元/克）'
-      : '人民币贬值，抬升国内金价（元/克）'
-  }
-  // WTI 原油
-  if (data.oil) {
-    setText('oilValue', fmt(data.oil.price))
-    applyChange($('oilChange'), data.oil.changePercent)
-    $('oilChange').textContent = (data.oil.changePercent >= 0 ? '+' : '') + fmt(data.oil.changePercent) + '%'
-    $('oilDesc').textContent = data.oil.changePercent >= 0 ? '油价上涨→通胀预期升温，利好金价' : '油价回落→通胀压力缓和'
-  }
-  // 白银
-  if (data.silver) {
-    setText('silverValue', fmt(data.silver.price))
-    applyChange($('silverChange'), data.silver.changePercent)
-    $('silverChange').textContent = (data.silver.changePercent >= 0 ? '+' : '') + fmt(data.silver.changePercent) + '%'
-    $('silverDesc').textContent = '贵金属联动：金银比通常同向波动'
+  if (typeof Chart === 'undefined') {
+    canvas.parentNode.insertAdjacentHTML('afterend', '<div class="chart-offline-note">图表库加载失败（需联网获取 Chart.js），离线环境下暂无法绘制走势图，其余行情数据不受影响。</div>')
+    return
   }
 
-  // 宏观参考值（优先实时数据，获取失败时回退静态参考）
-  const m10 = macroLive ? macroLive.us10y : MACRO_REF.us10y
-  setText('us10yValue', fmt(m10.value, 2) + '%')
-  $('us10yChange').textContent = macroLive ? fmtMacroDate(macroLive.us10y.date) + ' 数据' : MACRO_REF.us10y.label
-  $('us10yDesc').textContent = macroLive
-    ? '10Y名义收益率，与金价负相关；当前处于周期高位，曲线偏陡'
-    : MACRO_REF.us10y.desc
+  const ctx = canvas.getContext('2d')
+  const sgeSlice = sgeHistoryData.slice(-period)
+  const dates = sgeSlice.map(item => item.date.slice(5))
 
-  const mReal = macroLive ? macroLive.real : MACRO_REF.real
-  setText('realValue', typeof mReal.value === 'number' ? fmt(mReal.value, 2) + '%' : mReal.value)
-  $('realChange').textContent = macroLive ? fmtMacroDate(macroLive.real.date) + ' 数据' : MACRO_REF.real.label
-  $('realDesc').textContent = macroLive
-    ? 'TIPS 10年期实际收益率（名义收益率 − 通胀预期）'
-    : MACRO_REF.real.desc
+  const londonMap = londonHistoryData ? new Map(londonHistoryData.map(item => [item.date, item.close])) : null
+  const comexMap = comexHistoryData ? new Map(comexHistoryData.map(item => [item.date, item.close])) : null
 
-  // 美联储利率（优先实时数据，获取失败时回退静态参考）
-  if (macroFed) {
-    setText('fedValue', fmt(macroFed.lower, 2) + '–' + fmt(macroFed.upper, 2) + '%')
-    $('fedChange').textContent = fmtMonth(macroFed.month) + 'FOMC · ' + fmtShortDate(macroFed.publish) + '公布'
-    $('fedDesc').textContent = macroFed.nextPublish
-      ? '最近决议' + fmtShortDate(macroFed.publish) + '发布，下次决议预计' + fmtShortDate(macroFed.nextPublish)
-      : '最近决议' + fmtShortDate(macroFed.publish) + '发布'
-  } else {
-    setText('fedValue', MACRO_REF.fed.value)
-    $('fedChange').textContent = MACRO_REF.fed.label
-    $('fedDesc').textContent = MACRO_REF.fed.desc
+  const datasets = [{
+    label: '期货·沪金AU0（元/克）',
+    data: sgeSlice.map(item => item.close),
+    borderColor: '#d4af37',
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+    yAxisID: 'y',
+    fill: true,
+    tension: 0.3,
+    pointRadius: 2,
+    pointHoverRadius: 5
+  }]
+
+  if (londonHistoryData) {
+    datasets.push({
+      label: '现货·伦敦金（美元/盎司）',
+      data: sgeSlice.map(item => londonMap.get(item.date) || null),
+      borderColor: '#1e88e5',
+      backgroundColor: 'transparent',
+      yAxisID: 'y1',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      spanGaps: true
+    })
   }
 
-  // CPI（优先实时数据，获取失败时回退静态参考）
-  if (macroCpi) {
-    setText('cpiValue', fmt(macroCpi.value, 1) + '%')
-    $('cpiChange').textContent = fmtMonth(macroCpi.month) + '同比 · ' + fmtShortDate(macroCpi.publish) + '公布'
-    $('cpiDesc').textContent =
-      (macroCpi.core != null ? '核心 ' + fmt(macroCpi.core, 1) + '%；' : '') +
-      (macroCpi.nextPublish ? '下次公布 ' + fmtShortDate(macroCpi.nextPublish) + '（' + fmtMonth(macroCpi.nextMonth) + '数据）' : '')
-  } else {
-    setText('cpiValue', fmt(MACRO_REF.cpi.value, 1) + '%')
-    $('cpiChange').textContent = MACRO_REF.cpi.label
-    $('cpiDesc').textContent = MACRO_REF.cpi.desc
-  }
-}
-
-// ============ 主刷新 ============
-async function refreshAll() {
-  if (refreshLock) return
-  refreshLock = true
-  setStatus('', '刷新中…')
-
-  const codes = ['hf_GC', 'hf_XAU', 'hf_CL', 'hf_SI', 'whUSDCNY']
-  const results = {
-    gc: null, xau: null, oil: null, silver: null, usdcny: null,
-    sge: null, dxy: null
+  if (comexHistoryData) {
+    datasets.push({
+      label: '期货·COMEX（美元/盎司）',
+      data: sgeSlice.map(item => comexMap.get(item.date) || null),
+      borderColor: '#7e57c2',
+      backgroundColor: 'transparent',
+      yAxisID: 'y1',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      borderDash: [4, 4],
+      spanGaps: true
+    })
   }
 
-  try {
-    const raw = await fetchTencent(codes)
-    if (raw.hf_GC) results.gc = parseHf(raw.hf_GC.split(','))
-    if (raw.hf_XAU) results.xau = parseHf(raw.hf_XAU.split(','))
-    if (raw.hf_CL) results.oil = parseHf(raw.hf_CL.split(','))
-    if (raw.hf_SI) results.silver = parseHf(raw.hf_SI.split(','))
-    if (raw.whUSDCNY) results.usdcny = parseWh(raw.whUSDCNY.split('~'))
-  } catch (e) {
-    console.error('Tencent fetch failed:', e)
-  }
+  if (priceChart) priceChart.destroy()
 
-  try {
-    results.sge = await fetchSge()
-  } catch (e) {
-    console.error('SGE fetch failed:', e)
-    // 兜底：k780 限流/失败时，用伦敦金×USD/CNY换算为元/克（SGE Au9999 参考价）
-    if (results.xau && results.usdcny) {
-      results.sge = {
-        price: Math.round(results.xau.price * results.usdcny.price / 31.1035 * 100) / 100,
-        changePercent: results.xau.changePercent,
-        time: results.xau.time,
-        fallback: true
+  priceChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: dates, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      onClick: (e, elements) => {
+        if (!elements || !elements.length) return
+        const index = elements[0].index
+        const date = sgeSlice[index].date
+        selectedInsightDate = date
+        renderInsight(date, sgeSlice)
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: context => context.dataset.label + ': ' + fmt(context.raw)
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { maxTicksLimit: 6, color: '#888888' }
+        },
+        y: {
+          type: 'linear',
+          position: 'left',
+          title: { display: true, text: '元/克', color: '#d4af37' },
+          grid: { color: '#f0f0f0' },
+          ticks: { color: '#d4af37' }
+        },
+        y1: {
+          type: 'linear',
+          position: 'right',
+          title: { display: true, text: '美元/盎司', color: '#1e88e5' },
+          grid: { drawOnChartArea: false },
+          ticks: { color: '#1e88e5' }
+        }
       }
     }
-  }
-
-  try {
-    results.dxy = await fetchDxy()
-  } catch (e) {
-    console.error('DXY fetch failed:', e)
-  }
-
-  // 美债宏观（名义/实际10年期收益率，每日更新）
-  await fetchMacro()
-
-  renderPrices(results)
-
-  const okCount = [results.gc, results.xau, results.sge, results.dxy, results.usdcny].filter(Boolean).length
-  if (okCount >= 3) setStatus('online', '已连接')
-  else if (okCount > 0) setStatus('offline', '部分失败')
-  else setStatus('offline', '连接失败')
-
-  const now = new Date()
-  setLastUpdate('最近更新 ' + now.getHours().toString().padStart(2, '0') + ':' +
-    now.getMinutes().toString().padStart(2, '0') + ':' +
-    now.getSeconds().toString().padStart(2, '0') + ' · ' + refreshLabel(getRefreshInterval()))
-  refreshLock = false
+  })
 }
 
-// ============ 图表 ============
+async function loadHistory() {
+  try {
+    const [sge, london, comex] = await Promise.all([
+      fetchSgeHistory().catch(() => null),
+      fetchLondonHistory().catch(() => null),
+      fetchComexHistory().catch(() => null)
+    ])
+    sgeHistoryData = sge
+    londonHistoryData = london
+    comexHistoryData = comex
+    const active = document.querySelector('#chartPeriod .period-item.active')
+    renderChart(active ? parseInt(active.dataset.period) : 30)
+  } catch (e) {
+    console.error('History load failed:', e)
+  }
+}
+
+// ============ 图表事件解读（区间视角） ============
+
+// 将 'YYYY-MM-DD' 转为可比较的时间戳
+function dateTs(date) { return new Date(date).getTime() }
+function daysBetween(a, b) { return Math.round((dateTs(b) - dateTs(a)) / 86400000) }
+
+// 找出"观察点正处于影响窗口内"的已发生事件
+// 事件发生在 date - window ~ date + window 区间内，即认为该事件正持续影响观察点附近的价格
+function findActiveEvents(date) {
+  const t = dateTs(date)
+  return GOLD_EVENTS
+    .map(g => {
+      const diff = Math.round((t - dateTs(g.date)) / 86400000) // 观察点距离事件发生日几天（负=事件未发生）
+      return { ...g, diff }
+    })
+    .filter(g => Math.abs(g.diff) <= g.window)
+    .sort((a, b) => Math.abs(a.diff) - Math.abs(b.diff))
+}
+
+// 找出"市场正处于提前定价期"的未来事件（预期影响）
+// 观察点在 事件落地日-leadDays ~ 事件落地日 之间时，该预期正在影响价格
+function findPricingEvents(date) {
+  const t = dateTs(date)
+  return UPCOMING_EVENTS
+    .map(u => {
+      const daysLeft = Math.round((dateTs(u.date) - t) / 86400000) // 距事件落地还剩几天
+      return { ...u, daysLeft }
+    })
+    .filter(u => u.daysLeft >= 0 && u.daysLeft <= u.leadDays)
+    .sort((a, b) => a.daysLeft - b.daysLeft)
+}
+
+// 观察点所在区间的价格表现（前 lookback 个交易日）
+function getRangeChangeDesc(date, slice, lookback = 7) {
+  const idx = slice.findIndex(item => item.date === date)
+  if (idx < 0) return null
+  const end = slice[idx]
+  const start = slice[Math.max(0, idx - lookback + 1)]
+  const change = end.close - start.close
+  const changePct = (change / start.close) * 100
+  const upDays = slice.slice(Math.max(0, idx - lookback + 1), idx + 1).filter((it, i, arr) => i > 0 && it.close >= arr[i - 1].close).length
+  return {
+    startDate: start.date,
+    endDate: end.date,
+    start: start.close,
+    end: end.close,
+    change,
+    changePct,
+    span: Math.min(lookback, idx + 1),
+    upDays
+  }
+}
+
+function tagHtml(impact) {
+  const cls = impact === 'bull' ? 'bull' : impact === 'bear' ? 'bear' : 'neutral'
+  const text = impact === 'bull' ? '利多黄金' : impact === 'bear' ? '利空黄金' : '中性'
+  return `<span class="insight-tag ${cls}">${text}</span>`
+}
+
+function renderInsight(date, slice) {
+  const insight = $('chartInsight')
+  if (!insight) return
+
+  const active = findActiveEvents(date)   // 已发生、仍在影响期的事件
+  const pricing = findPricingEvents(date) // 正在被市场提前定价的未来事件
+  const range = getRangeChangeDesc(date, slice)
+
+  let html = ''
+  html += `<div class="insight-title">${date} 所在区间 · 金价影响因素解读</div>`
+
+  // —— 区间价格表现 ——
+  if (range) {
+    const dir = range.changePct >= 0 ? '上涨' : '下跌'
+    const strong = Math.abs(range.changePct) >= 1.5
+    html += `<div class="insight-block"><div class="block-label">📊 区间表现（前 ${range.span} 个交易日）</div>`
+    html += `<p>自 <strong>${range.startDate}</strong> 至 <strong>${range.endDate}</strong>，金价${dir} <span class="${range.changePct >= 0 ? 'price-up' : 'price-down'}">${fmtSign(range.changePct)}%</span>（${fmt(range.start)} → ${fmt(range.end)} 元/克）。</p>`
+    if (strong && range.changePct < 0) {
+      html += `<p>· 该区间明显下行，通常对应美元走强、美债实际收益率上行，或市场加息预期升温。</p>`
+    } else if (strong && range.changePct > 0) {
+      html += `<p>· 该区间明显上行，通常对应美元走弱、地缘避险，或对财政/通胀风险的担忧发酵。</p>`
+    } else {
+      html += `<p>· 该区间波动相对温和，市场可能处于事件真空期，等待新的宏观数据或美联储指引。</p>`
+    }
+    html += `</div>`
+  }
+
+  // —— 已发生事件的持续影响 ——
+  html += `<div class="insight-block"><div class="block-label">🗓 已发生事件的持续影响</div>`
+  if (active.length > 0) {
+    active.forEach(g => {
+      const status = g.diff === 0 ? '事件当日' : g.diff > 0 ? `事件已过 ${g.diff} 天` : `${-g.diff} 天后发生`
+      html += `<p>${tagHtml(g.events[0].impact)}<strong>${g.date}</strong>（${status}，影响窗口 ±${g.window} 天）</p>`
+      g.events.forEach(ev => {
+        html += `<p class="sub">· ${ev.title}：${ev.desc}</p>`
+        if (ev.logic) html += `<p class="logic">🔗 影响逻辑：${ev.logic}</p>`
+      })
+    })
+    html += `<p class="hint">这些事件的影响并未在当天结束，而是在窗口期内持续作用于价格。</p>`
+  } else {
+    html += `<p class="empty">该观察点前后暂无处于影响窗口内的已记录事件。</p>`
+  }
+  html += `</div>`
+
+  // —— 未来事件的预期影响 ——
+  html += `<div class="insight-block"><div class="block-label">🔮 未来事件的预期影响（市场提前定价）</div>`
+  if (pricing.length > 0) {
+    pricing.forEach(u => {
+      html += `<p>${tagHtml(u.impact)}<strong>${u.date} · ${u.title}</strong>（距落地 ${u.daysLeft} 天，市场提前 ${u.leadDays} 天开始定价）</p>`
+      html += `<p class="sub">${u.desc}</p>`
+      if (u.logic) html += `<p class="logic">🔗 影响逻辑：${u.logic}</p>`
+    })
+    html += `<p class="hint">事件尚未发生，但其"预期"已在当前价格中提前反映，往往比事件本身更早、更持续地影响走势。</p>`
+  } else {
+    html += `<p class="empty">观察点之后暂无临近的预期事件。</p>`
+  }
+  html += `</div>`
+
+  insight.classList.toggle('has-event', active.length > 0 || pricing.length > 0)
+  insight.innerHTML = html
+  insight.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+}
+
+// ============ 今日金市动态 ============
+function todayStr() {
+  const d = new Date()
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+}
+
+function renderTodayEvents() {
+  const el = $('todayEvents')
+  if (!el) return
+  const t = todayStr()
+  let list = GOLD_EVENTS
+    .map(g => ({ ...g, diff: daysBetween(g.date, t) }))
+    .filter(g => Math.abs(g.diff) <= g.window)
+    .sort((a, b) => a.diff - b.diff)
+  const isFallback = !list.length
+  if (!list.length) {
+    // 无当前影响事件时，展示最近两条已发生事件
+    list = GOLD_EVENTS.slice(0, 2).map(g => ({ ...g, diff: daysBetween(g.date, t) }))
+  }
+  let html = ''
+  list.forEach(g => {
+    const days = g.diff
+    const when = days === 0 ? '今日' : days === -1 ? '明日' : days === 1 ? '昨日' : (days < 0 ? Math.abs(days) + '天后' : Math.abs(days) + '天前')
+    const e = g.events[0]
+    html += `
+      <div class="event-item">
+        <div class="event-top">
+          <span class="event-date">${fmtShortDate(g.date)} · ${when} · 影响窗口 ±${g.window}天</span>
+          ${tagHtml(e.impact)}
+        </div>
+        <div class="event-title">${e.title}</div>
+        <div class="event-desc">${e.desc}</div>
+        ${e.logic ? `<div class="event-logic" hidden>${e.logic}</div><div class="event-toggle">查看逻辑链 ▾</div>` : ''}
+      </div>`
+  })
+  el.innerHTML = html
+  if (isFallback) {
+    const note = document.createElement('div')
+    note.className = 'insight-empty'
+    note.textContent = '当前无处于影响窗口内的事件，以下为最近已发生事件。'
+    el.appendChild(note)
+  }
+  el.querySelectorAll('.event-toggle').forEach(tg => {
+    tg.addEventListener('click', () => {
+      const lg = tg.parentNode.querySelector('.event-logic')
+      if (!lg) return
+      const open = lg.hidden
+      lg.hidden = !open
+      tg.textContent = open ? '收起逻辑链 ▴' : '查看逻辑链 ▾'
+    })
+  })
+}
+
+const GOLD_NEWS_KEYWORDS = ['黄金', '金价', '伦敦金', '现货金', 'COMEX', '期金', '金银', '金市', '美联储', '美元指数', '美债', '非农', 'CPI', '避险']
+const NEWS_REFRESH_MS = 30 * 60 * 1000
+
+function nowTime() {
+  const d = new Date()
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
+}
+
+let _newsSource = '东方财富'
+
+// 渲染快讯列表（按关键词过滤）
+function renderNewsItems(items) {
+  const listEl = $('newsList')
+  const metaEl = $('newsMeta')
+  if (!listEl) return
+  const filtered = (items || [])
+    .filter(it => (it.title || '') && GOLD_NEWS_KEYWORDS.some(k => it.title.includes(k)))
+    .slice(0, 6)
+  if (!filtered.length) {
+    listEl.innerHTML = '<div class="news-empty">近30分钟内暂无与黄金直接相关的快讯</div>'
+  } else {
+    listEl.innerHTML = filtered.map(it => {
+      const ct = it.time || it.showTime || ''
+      const t = ct.length >= 16 ? ct.slice(11, 16) : ''
+      return `<div class="news-item"><span class="news-time">${t}</span><span class="news-text">${it.title}</span></div>`
+    }).join('')
+  }
+  if (metaEl) metaEl.textContent = '更新于 ' + nowTime() + ' · ' + _newsSource
+}
+
+// 备用源：新浪7x24快讯（JSONP，绕过CORS限制）
+function loadGoldNewsSina() {
+  return new Promise((resolve) => {
+    const cb = 'sinaGoldNews_' + Date.now()
+    const script = document.createElement('script')
+    const timer = setTimeout(cleanup, 8000)
+    function cleanup() {
+      clearTimeout(timer)
+      try { delete window[cb] } catch (e) { window[cb] = undefined }
+      if (script.parentNode) script.parentNode.removeChild(script)
+    }
+    window[cb] = (json) => {
+      const list = (json && json.result && json.result.data && json.result.data.feed && json.result.data.feed.list) || []
+      const items = list
+        .filter(it => (it.rich_text || '').trim())
+        .map(it => ({ title: it.rich_text.trim(), time: it.create_time || it.update_time || '' }))
+      cleanup()
+      resolve(items)
+    }
+    script.src = 'https://zhibo.sina.com.cn/api/zhibo/feed?page=1&page_size=20&zhibo_id=152&tag_id=0&dire=f&dpc=1&pagesize=20&callback=' + cb
+    document.head.appendChild(script)
+  })
+}
+
+async function loadGoldNews() {
+  const listEl = $('newsList')
+  if (!listEl) return
+  // 主源：东方财富7x24快讯（CORS）
+  try {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 10000)
+    const res = await fetch('https://np-weblist.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_724&fastColumn=102&sortEnd=&pageSize=50&req_trace=' + Date.now(), { signal: ctrl.signal })
+    clearTimeout(timer)
+    if (!res.ok) throw new Error('HTTP ' + res.status)
+    const json = await res.json()
+    const arr = (json.data && json.data.fastNewsList) || []
+    _newsSource = '东方财富'
+    renderNewsItems(arr.map(it => ({ title: it.title, time: it.showTime })))
+    return
+  } catch (e) {
+    // 备用源：新浪
+    try {
+      const items = await loadGoldNewsSina()
+      if (items.length) {
+        _newsSource = '新浪财经'
+        renderNewsItems(items)
+        return
+      }
+    } catch (e2) {}
+    listEl.innerHTML = '<div class="news-empty">快讯获取失败，稍后自动重试</div>'
+    const metaEl = $('newsMeta')
+    if (metaEl) metaEl.textContent = '连接异常'
+  }
+}
+
+function initTodayDynamics() {
+  renderTodayEvents()
+  loadGoldNews()
+  setInterval(loadGoldNews, NEWS_REFRESH_MS)
+}
+
+// ============ 自动刷新控制 ============
+function updateRefreshSettingBtn() {
+  const btn = $('btnRefreshSetting')
+  if (btn) btn.textContent = refreshLabel(getRefreshInterval()) + ' ▾'
+}
+
+function restartAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer)
+  const interval = getRefreshInterval()
+  if (interval > 0) {
+    refreshTimer = setInterval(refreshAll, interval * 1000)
+  } else {
+    refreshTimer = null
+  }
+  updateRefreshSettingBtn()
+}
+
+function setRefreshFromPrompt() {
+  const items = REFRESH_OPTIONS.map((o, i) => i + '. ' + o.label).join('\n')
+  const current = getRefreshInterval()
+  const defaultIdx = Math.max(0, REFRESH_OPTIONS.findIndex(o => o.value === current))
+  const selected = prompt(
+    '选择自动刷新频率（输入 0-' + (REFRESH_OPTIONS.length - 1) + '）：\n' + items,
+    defaultIdx
+  )
+  const idx = parseInt(selected)
+  if (isNaN(idx) || idx < 0 || idx >= REFRESH_OPTIONS.length) return
+  setRefreshInterval(REFRESH_OPTIONS[idx].value)
+}
+
+// ============ 事件 ============
+$('btnRefresh').addEventListener('click', () => {
+  refreshAll()
+  loadHistory()
+})
+
+const refreshSettingBtn = $('btnRefreshSetting')
+if (refreshSettingBtn) refreshSettingBtn.addEventListener('click', setRefreshFromPrompt)
+
+document.querySelectorAll('#chartPeriod .period-item').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('#chartPeriod .period-item').forEach(i => i.classList.remove('active'))
+    el.classList.add('active')
+    renderChart(parseInt(el.dataset.period))
+    // 切换周期后清空解读
+    selectedInsightDate = null
+    const insight = $('chartInsight')
+    if (insight) {
+      insight.classList.remove('has-event')
+      insight.innerHTML = `
+        <div class="insight-title">📍 点击图表任意日期，以该日为观察点解读所在区间</div>
+        <div class="insight-body">展示该观察点所处时间区间内的价格表现、已发生事件的持续影响，以及市场对未来事件的预期定价。</div>
+      `
+    }
+  })
+})
+
+// ============ 初始化 ============
+initTodayDynamics()
+refreshAll()
+loadHistory()
+restartAutoRefresh()
+
+<\/script>
+</body>
+</html>
+
+  </script>
+  <script type="text/plain" id="srcInvest">
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>黄金投资助手</title>
+  <style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --gold: #d4af37;
+  --gold-light: #f4d03f;
+  --dark: #1a1a2e;
+  --dark-2: #16213e;
+  --red: #e64340;
+  --green: #07c160;
+  --bg: #f5f5f5;
+  --text: #333333;
+  --text-light: #888888;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+#app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-bottom: 80px;
+}
+
+.app-header {
+  background: linear-gradient(135deg, var(--dark) 0%, var(--dark-2) 100%);
+  color: #fff;
+  padding: 16px 20px;
+  text-align: center;
+  position: relative;
+}
+
+.app-header h1 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.app-main {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, var(--dark) 0%, var(--dark-2) 100%);
+  color: #fff;
+}
+
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.section-title .more {
+  font-size: 14px;
+  color: var(--gold);
+  font-weight: 400;
+  cursor: pointer;
+}
+
+/* 首页金价 */
+.price-card {
+  cursor: pointer;
+}
+
+.price-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.price-label {
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.price-tag {
+  font-size: 12px;
+  padding: 3px 10px;
+  background: rgba(212, 175, 55, 0.2);
+  color: var(--gold);
+  border-radius: 12px;
+}
+
+.price-value {
+  font-size: 48px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.price-value .currency {
+  font-size: 28px;
+  margin-right: 4px;
+}
+
+.price-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.edit-hint {
+  color: var(--gold);
+}
+
+/* 双数据源 */
+.data-source-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.source-card {
+  flex: 1;
+  padding: 16px;
+}
+
+.source-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.source-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.source-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.source-ok {
+  background: rgba(7, 193, 96, 0.1);
+  color: var(--green);
+}
+
+.source-fail {
+  background: rgba(136, 136, 136, 0.1);
+  color: var(--text-light);
+}
+
+.source-price {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.currency-small {
+  font-size: 14px;
+  margin-right: 2px;
+}
+
+.source-unit {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 6px;
+}
+
+.source-change {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.source-empty {
+  font-size: 24px;
+  color: #ccc;
+  padding: 16px 0;
+  text-align: center;
+}
+
+/* 持仓概览 */
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.summary-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-item .label {
+  font-size: 13px;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+
+.summary-item .value {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.gold-text {
+  color: var(--gold);
+}
+
+.divider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 16px 0;
+}
+
+.profit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profit-row .label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+
+.profit-value {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.profit-rate {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.price-up {
+  color: var(--red);
+}
+
+.price-down {
+  color: var(--green);
+}
+
+/* 按钮 */
+.action-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.btn {
+  flex: 1;
+  height: 48px;
+  border: none;
+  border-radius: 24px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+  color: var(--dark);
+}
+.btn-secondary {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid #e0e0e0;
+}
+
+.auto-refresh-btn {
+  width: 100%;
+}
+
+/* 金价走势图表 */
+.chart-card {
+  padding: 16px;
+}
+
+.chart-card .section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.chart-period {
+  display: flex;
+  gap: 8px;
+}
+
+.period-item {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #f5f5f5;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.period-item.active {
+  background: var(--gold);
+  color: #fff;
+}
+
+.chart-wrap {
+  position: relative;
+  height: 240px;
+  margin-bottom: 10px;
+}
+
+.chart-offline-note {
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+  padding: 14px;
+  margin-bottom: 10px;
+  border: 1px dashed #ccc;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.chart-legend {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  font-size: 12px;
+  color: #666;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-item i {
+  display: inline-block;
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.legend-item.sge i {
+  background: var(--gold);
+}
+
+.legend-item.spot i {
+  background: #1e88e5;
+}
+
+.legend-item.comex i {
+  background: #7e57c2;
+}
+
+.legend-item.buy i {
+  background: var(--green);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legend-item.sell i {
+  background: var(--red);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.btn-danger {
+  background: #fff;
+  color: var(--red);
+  border: 1px solid var(--red);
+}
+
+/* 持仓登记 */
+.type-holding {
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  color: var(--dark);
+}
+
+.holding-record {
+  background: #fdf9ec;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border-bottom: none;
+}
+
+.total-profit-row {
+  margin-top: 14px;
+}
+
+.realized-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+/* 记一笔模式切换 */
+.mode-seg {
+  display: flex;
+  background: #f2f2f2;
+  border-radius: 12px;
+  padding: 4px;
+  margin: 12px 0 4px;
+}
+
+.mode-item {
+  flex: 1;
+  height: 36px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-item.active {
+  background: #fff;
+  color: var(--dark);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-hint {
+  padding: 12px 0;
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+/* 记录列表 */
+.record-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid #f5f5f5;
+  cursor: pointer;
+}
+
+.record-item:last-child {
+  border-bottom: none;
+}
+
+.record-left {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.record-type {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #fff;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.type-buy {
+  background: var(--red);
+}
+
+.type-sell {
+  background: var(--green);
+}
+
+.record-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.record-date {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+
+.record-detail {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+.record-remark {
+  font-size: 12px;
+  color: #999;
+}
+
+.record-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.record-amount {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.record-fee {
+  font-size: 12px;
+  color: #999;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 50px 20px;
+  color: #999;
+  font-size: 14px;
+}
+
+.count {
+  font-size: 14px;
+  color: var(--text-light);
+  font-weight: 400;
+}
+
+/* 表单 */
+.form-card {
+  padding: 8px 20px;
+}
+
+.form-item {
+  display: flex;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.form-item:last-child {
+  border-bottom: none;
+}
+
+.form-label {
+  width: 110px;
+  font-size: 15px;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+input, select {
+  flex: 1;
+  font-size: 15px;
+  color: var(--text);
+  text-align: right;
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+.picker-value {
+  flex: 1;
+  font-size: 15px;
+  color: var(--text);
+  text-align: right;
+}
+
+.radio-group {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 20px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.radio-text {
+  margin-left: 6px;
+  font-size: 15px;
+  color: #666;
+}
+
+.radio-text.active-buy {
+  color: var(--red);
+  font-weight: 600;
+}
+
+.radio-text.active-sell {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.save-btn {
+  width: 100%;
+  margin-top: 24px;
+}
+
+/* 底部导航 */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  height: 60px;
+  z-index: 100;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.tab-item.active {
+  color: var(--gold);
+}
+
+.tab-icon {
+  font-size: 20px;
+  margin-bottom: 2px;
+}
+
+.tab-text {
+  font-size: 12px;
+}
+
+/* 弹窗 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  width: 80%;
+  max-width: 320px;
+}
+
+.modal-title {
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 15px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.modal-actions .btn {
+  flex: 1;
+}
+
+.loading {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--dark);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 6px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+</style>
+</head>
+<body>
+  <div id="app">
+    <main class="app-main" id="main">
+      <!-- 动态内容 -->
+    </main>
+
+    <nav class="tab-bar">
+      <div class="tab-item active" data-page="home">
+        <span class="tab-icon">🏠</span>
+        <span class="tab-text">持仓</span>
+      </div>
+      <div class="tab-item" data-page="records">
+        <span class="tab-icon">📋</span>
+        <span class="tab-text">记录</span>
+      </div>
+      <div class="tab-item" data-page="add">
+        <span class="tab-icon">➕</span>
+        <span class="tab-text">记一笔</span>
+      </div>
+    </nav>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script>
+  <script>
+const RECORDS_KEY = 'gold_web_records'
+const PRICE_KEY = 'gold_web_manual_price'
+const AUTO_REFRESH_KEY = 'gold_web_auto_refresh_interval'
+const HOLDING_KEY = 'gold_web_holding'
+const DEFAULT_PRICE = 560
+const OUNCE_TO_GRAM = 31.1034768
+
+let currentPrice = DEFAULT_PRICE
+let priceSource = '演示'
+let comexData = null
+let londonData = null
+let usdCnyRate = 0
+let auHistoryData = null
+let londonHistoryData = null
+let comexHistoryData = null
+let priceChart = null
+
+// ============ Storage ============
+function getRecords() {
+  try {
+    return JSON.parse(localStorage.getItem(RECORDS_KEY)) || []
+  } catch {
+    return []
+  }
+}
+
+function saveRecords(records) {
+  localStorage.setItem(RECORDS_KEY, JSON.stringify(records))
+}
+
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 6)
+}
+
+function addRecord(record) {
+  const records = getRecords()
+  records.unshift({ id: generateId(), ...record, createAt: Date.now() })
+  saveRecords(records)
+}
+
+function updateRecord(id, record) {
+  const records = getRecords()
+  const index = records.findIndex(item => item.id === id)
+  if (index === -1) return
+  records[index] = { ...records[index], ...record }
+  saveRecords(records)
+}
+
+function deleteRecord(id) {
+  saveRecords(getRecords().filter(item => item.id !== id))
+}
+
+function getManualPrice() {
+  return parseFloat(localStorage.getItem(PRICE_KEY)) || 0
+}
+
+function setManualPrice(price) {
+  localStorage.setItem(PRICE_KEY, price)
+}
+
+function getAutoRefreshInterval() {
+  // 默认开启 30 秒自动刷新；用户显式存过值（含"关闭"=0）则尊重用户选择
+  const raw = localStorage.getItem(AUTO_REFRESH_KEY)
+  if (raw === null) return 30
+  return parseInt(raw) || 0
+}
+
+function setAutoRefreshInterval(interval) {
+  localStorage.setItem(AUTO_REFRESH_KEY, interval)
+}
+
+// 持仓登记（直接录入当前持仓快照，不依赖逐笔交易）
+function getHolding() {
+  try {
+    return JSON.parse(localStorage.getItem(HOLDING_KEY)) || null
+  } catch {
+    return null
+  }
+}
+
+function saveHolding(holding) {
+  localStorage.setItem(HOLDING_KEY, JSON.stringify(holding))
+}
+
+function clearHolding() {
+  localStorage.removeItem(HOLDING_KEY)
+}
+
+// 将一笔交易叠加到持仓状态上（买入加仓、卖出减仓并确认已实现盈亏）
+function applyTrade(state, item) {
+  const weight = Number(item.weight) || 0
+  const amount = Number(item.amount) || 0
+  const fee = Number(item.fee) || 0
+  if (item.type === 'buy') {
+    state.weight += weight
+    state.cost += amount + fee
+  } else {
+    const avg = state.weight > 0 ? state.cost / state.weight : 0
+    const sold = Math.min(weight, state.weight)
+    const costBasis = avg * sold
+    state.weight -= sold
+    state.cost -= costBasis
+    state.realized += (amount - fee) - costBasis
+  }
+}
+
+function getSummary(price) {
+  const holding = getHolding()
+  const records = getRecords()
+  const state = { weight: 0, cost: 0, realized: 0 }
+
+  if (holding) {
+    // 持仓登记为基准：登记前的历史交易已并入登记数据，只叠加登记之后的交易
+    state.weight = Number(holding.weight) || 0
+    state.cost = Number(holding.cost) || 0
+    state.realized = Number(holding.realizedProfit) || 0
+    const baseTime = Number(holding.createdAt) || 0
+    records.forEach(item => {
+      if ((item.createAt || 0) > baseTime) applyTrade(state, item)
+    })
+  } else {
+    // 无登记：沿用全部逐笔交易累加，卖出自动确认已实现盈亏
+    records.forEach(item => applyTrade(state, item))
+  }
+
+  state.weight = Math.max(0, state.weight)
+  state.cost = Math.max(0, state.cost)
+
+  const avgCost = state.weight > 0 ? state.cost / state.weight : 0
+  const marketValue = state.weight * (price || 0)
+  const profit = marketValue - state.cost
+  const profitRate = state.cost > 0 ? (profit / state.cost) * 100 : 0
+  const totalProfit = profit + state.realized
+  const totalProfitRate = state.cost > 0 ? (totalProfit / state.cost) * 100 : 0
+
+  return {
+    totalWeight: state.weight,
+    totalCost: state.cost,
+    avgCost,
+    marketValue,
+    profit,
+    profitRate,
+    realizedProfit: state.realized,
+    totalProfit,
+    totalProfitRate
+  }
+}
+
+// ============ API ============
+async function fetchComexPrice() {
+  const res = await fetch('https://qt.gtimg.cn/q=hf_GC')
+  const text = await res.text()
+  const match = text.match(/v_hf_GC="([^"]+)"/)
+  if (!match) throw new Error('COMEX parse failed')
+  const parts = match[1].split(',')
+  return {
+    name: 'COMEX黄金期货',
+    price: parseFloat(parts[0]),
+    changePercent: parseFloat(parts[1]),
+    buy: parseFloat(parts[2]),
+    sell: parseFloat(parts[3]),
+    high: parseFloat(parts[4]),
+    low: parseFloat(parts[5]),
+    open: parseFloat(parts[7]),
+    prevClose: parseFloat(parts[8]),
+    time: parts[6],
+    date: parts[12],
+    unit: '美元/盎司'
+  }
+}
+
+async function fetchLondonPrice() {
+  const res = await fetch('https://qt.gtimg.cn/q=hf_XAU')
+  const text = await res.text()
+  const match = text.match(/v_hf_XAU="([^"]+)"/)
+  if (!match) throw new Error('London Gold parse failed')
+  const parts = match[1].split(',')
+  return {
+    name: '伦敦金现货',
+    price: parseFloat(parts[0]),
+    changePercent: parseFloat(parts[1]),
+    buy: parseFloat(parts[2]),
+    sell: parseFloat(parts[3]),
+    high: parseFloat(parts[4]),
+    low: parseFloat(parts[5]),
+    time: parts[6],
+    open: parseFloat(parts[7]),
+    prevClose: parseFloat(parts[8]),
+    date: parts[12],
+    unit: '美元/盎司'
+  }
+}
+
+async function fetchUsdCny() {
+  // 腾讯行情 whUSDCNY：盘中实时汇率，~ 分隔，3=现价
+  const res = await fetch('https://qt.gtimg.cn/q=whUSDCNY')
+  const text = await res.text()
+  const match = text.match(/v_whUSDCNY="([^"]*)"/)
+  if (!match) throw new Error('USDCNY parse failed')
+  const price = parseFloat(match[1].split('~')[3])
+  if (!price) throw new Error('USDCNY empty')
+  return price
+}
+
+function convertUsdPerOunceToCnyPerGram(usdPerOunce, usdCny) {
+  return Math.round((usdPerOunce * usdCny / OUNCE_TO_GRAM) * 100) / 100
+}
+
+async function fetchGoldPrice() {
+  const manualPrice = getManualPrice()
+  try {
+    const [comex, london, usdCny] = await Promise.all([
+      fetchComexPrice().catch(() => null),
+      fetchLondonPrice().catch(() => null),
+      fetchUsdCny().catch(() => null)
+    ])
+
+    comexData = comex
+    londonData = london
+    usdCnyRate = usdCny || 0
+
+    let referencePrice = 0
+    let source = '演示'
+
+    if (london && london.price && usdCny) {
+      referencePrice = convertUsdPerOunceToCnyPerGram(london.price, usdCny)
+      source = '伦敦金现货'
+    } else if (comex && comex.price && usdCny) {
+      referencePrice = convertUsdPerOunceToCnyPerGram(comex.price, usdCny)
+      source = 'COMEX换算'
+    } else if (manualPrice) {
+      referencePrice = manualPrice
+      source = '手动'
+    } else {
+      referencePrice = DEFAULT_PRICE
+      source = '演示'
+    }
+
+    currentPrice = referencePrice
+    priceSource = source
+    return { price: referencePrice, source, comex, london, usdCny, updatedAt: Date.now() }
+  } catch (err) {
+    currentPrice = manualPrice || DEFAULT_PRICE
+    priceSource = manualPrice ? '手动' : '演示'
+    comexData = null
+    londonData = null
+    usdCnyRate = 0
+    return { price: currentPrice, source: priceSource, comex: null, london: null, usdCny: 0, updatedAt: Date.now(), error: err.message }
+  }
+}
+
+function loadSinaJsonp(url, varName) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = url
+    script.async = true
+
+    const timeout = setTimeout(() => {
+      cleanup()
+      reject(new Error('JSONP timeout'))
+    }, 15000)
+
+    function cleanup() {
+      clearTimeout(timeout)
+      if (script.parentNode) script.parentNode.removeChild(script)
+    }
+
+    script.onload = () => {
+      const data = window[varName]
+      cleanup()
+      if (data) {
+        resolve(data)
+      } else {
+        reject(new Error('JSONP no data'))
+      }
+    }
+
+    script.onerror = () => {
+      cleanup()
+      reject(new Error('JSONP load failed'))
+    }
+
+    document.head.appendChild(script)
+  })
+}
+
+async function fetchAuHistory() {
+  const varName = 'gold_au_hist_' + Date.now()
+  const data = await loadSinaJsonp(
+    `https://stock.finance.sina.com.cn/futures/api/jsonp.php/${varName}=/InnerFuturesNewService.getDailyKLine?symbol=AU0`,
+    varName
+  )
+  return data.map(item => ({
+    date: item.d,
+    open: parseFloat(item.o),
+    high: parseFloat(item.h),
+    low: parseFloat(item.l),
+    close: parseFloat(item.c)
+  }))
+}
+
+async function fetchLondonHistory() {
+  const varName = 'gold_lon_hist_' + Date.now()
+  const data = await loadSinaJsonp(
+    `https://stock.finance.sina.com.cn/futures/api/jsonp.php/${varName}=/GlobalFuturesService.getGlobalFuturesDailyKLine?symbol=XAU`,
+    varName
+  )
+  return data.map(item => ({
+    date: item.date,
+    open: parseFloat(item.open),
+    high: parseFloat(item.high),
+    low: parseFloat(item.low),
+    close: parseFloat(item.close)
+  }))
+}
+
+async function fetchComexHistory() {
+  const varName = 'gold_comex_hist_' + Date.now()
+  const data = await loadSinaJsonp(
+    `https://stock.finance.sina.com.cn/futures/api/jsonp.php/${varName}=/GlobalFuturesService.getGlobalFuturesDailyKLine?symbol=GC`,
+    varName
+  )
+  return data.map(item => ({
+    date: item.date,
+    open: parseFloat(item.open),
+    high: parseFloat(item.high),
+    low: parseFloat(item.low),
+    close: parseFloat(item.close)
+  }))
+}
+
+// JSONP 偶发失败，重试提高数据源可靠性
+async function fetchWithRetry(fn, retries = 3, delay = 1000) {
+  let lastErr
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastErr = err
+      if (i < retries - 1) await new Promise(r => setTimeout(r, delay))
+    }
+  }
+  throw lastErr
+}
+
+// ============ Utils ============
+function formatMoney(value) {
+  return (Number(value) || 0).toFixed(2)
+}
+
+function formatDateTime(ts) {
+  const d = new Date(ts)
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+}
+
+function formatInterval(seconds) {
+  if (seconds <= 0) return '已关闭'
+  if (seconds < 60) return `${seconds}秒`
+  if (seconds === 60) return '1分钟'
+  return `${Math.floor(seconds / 60)}分钟`
+}
+
+const INTERVAL_OPTIONS = [
+  { label: '关闭', value: 0 },
+  { label: '10秒', value: 10 },
+  { label: '30秒', value: 30 },
+  { label: '1分钟', value: 60 },
+  { label: '5分钟', value: 300 }
+]
+
+function formatDate(date) {
+  const d = date ? new Date(date) : new Date()
+  const year = d.getFullYear()
+  const month = (d.getMonth() + 1).toString().padStart(2, '0')
+  const day = d.getDate().toString().padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// ============ Router ============
+const main = document.getElementById('main')
+let currentPage = 'home'
+let autoRefreshTimer = null
+
+function startAutoRefresh(interval) {
+  stopAutoRefresh()
+  if (interval > 0) {
+    autoRefreshTimer = setInterval(() => {
+      if (currentPage === 'home') {
+        refreshPrice()
+      }
+    }, interval * 1000)
+  }
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
+  }
+}
+
+function switchTab(page) {
+  currentPage = page
+  document.querySelectorAll('.tab-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === page)
+  })
+  if (page === 'home') renderHome()
+  else if (page === 'records') renderRecords()
+  else if (page === 'add') renderAdd()
+}
+
+document.querySelectorAll('.tab-item').forEach(el => {
+  el.addEventListener('click', () => switchTab(el.dataset.page))
+})
+
+// ============ Home ============
+async function renderHome() {
+  const summary = getSummary(currentPrice)
+  const records = getRecords().slice(0, 5)
+
+  main.innerHTML = `
+    <div class="card gold-gradient price-card" id="priceCard">
+      <div class="price-header">
+        <span class="price-label">持仓参考价（元/克）</span>
+        <span class="price-tag">${priceSource}</span>
+      </div>
+      <div class="price-value">
+        <span class="currency">¥</span>${formatMoney(currentPrice)}
+      </div>
+      <div class="price-footer">
+        <span>自动：${formatInterval(getAutoRefreshInterval())}</span>
+        <span class="edit-hint">点击修改金价</span>
+      </div>
+    </div>
+
+    <div class="data-source-row">
+      <div class="card source-card">
+        <div class="source-header">
+          <span class="source-name">COMEX 期货</span>
+          <span class="source-tag ${comexData ? 'source-ok' : 'source-fail'}">${comexData ? '已连接' : '未获取'}</span>
+        </div>
+        ${comexData ? `
+          <div class="source-price"><span class="currency-small">$</span>${formatMoney(comexData.price)}</div>
+          <div class="source-unit">${comexData.unit}</div>
+          <div class="source-change ${comexData.changePercent >= 0 ? 'price-up' : 'price-down'}">
+            ${comexData.changePercent >= 0 ? '+' : ''}${formatMoney(comexData.changePercent)}%
+          </div>
+        ` : '<div class="source-empty">--</div>'}
+      </div>
+
+      <div class="card source-card">
+        <div class="source-header">
+          <span class="source-name">现货·伦敦金</span>
+          <span class="source-tag ${londonData ? 'source-ok' : 'source-fail'}">${londonData ? '已连接' : '未获取'}</span>
+        </div>
+        ${londonData ? `
+          <div class="source-price"><span class="currency-small">$</span>${formatMoney(londonData.price)}</div>
+          <div class="source-unit">${londonData.unit}</div>
+          <div class="source-change ${londonData.changePercent >= 0 ? 'price-up' : 'price-down'}">
+            ${londonData.changePercent >= 0 ? '+' : ''}${formatMoney(londonData.changePercent)}%
+          </div>
+        ` : '<div class="source-empty">--</div>'}
+      </div>
+    </div>
+
+    <div class="card summary-card">
+      <div class="section-title">持仓概览</div>
+      <div class="summary-row">
+        <div class="summary-item">
+          <span class="label">持仓克重</span>
+          <span class="value">${formatMoney(summary.totalWeight)} g</span>
+        </div>
+        <div class="summary-item">
+          <span class="label">持仓成本</span>
+          <span class="value">¥${formatMoney(summary.totalCost)}</span>
+        </div>
+      </div>
+      <div class="summary-row">
+        <div class="summary-item">
+          <span class="label">平均成本</span>
+          <span class="value">¥${formatMoney(summary.avgCost)}</span>
+        </div>
+        <div class="summary-item">
+          <span class="label">总市值</span>
+          <span class="value gold-text">¥${formatMoney(summary.marketValue)}</span>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="profit-row">
+        <div>
+          <span class="label">持仓盈亏（浮动）</span>
+          <span class="profit-value ${summary.profit >= 0 ? 'price-up' : 'price-down'}">
+            ${summary.profit >= 0 ? '+' : ''}¥${formatMoney(summary.profit)}
+          </span>
+        </div>
+        <div class="profit-rate ${summary.profitRate >= 0 ? 'price-up' : 'price-down'}">
+          ${summary.profitRate >= 0 ? '+' : ''}${formatMoney(summary.profitRate)}%
+        </div>
+      </div>
+      <div class="profit-row total-profit-row">
+        <div>
+          <span class="label">累计总收益</span>
+          <span class="profit-value ${summary.totalProfit >= 0 ? 'price-up' : 'price-down'}">
+            ${summary.totalProfit >= 0 ? '+' : ''}¥${formatMoney(summary.totalProfit)}
+          </span>
+        </div>
+        <div class="profit-rate ${summary.totalProfitRate >= 0 ? 'price-up' : 'price-down'}">
+          ${summary.totalProfitRate >= 0 ? '+' : ''}${formatMoney(summary.totalProfitRate)}%
+        </div>
+      </div>
+      <div class="realized-hint">含已实现盈亏：${summary.realizedProfit >= 0 ? '+' : ''}¥${formatMoney(summary.realizedProfit)}</div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="section-title">
+        <span>金价走势</span>
+        <span class="chart-period" id="chartPeriod">
+          <span class="period-item active" data-period="30">30天</span>
+          <span class="period-item" data-period="90">90天</span>
+          <span class="period-item" data-period="180">半年</span>
+        </span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="priceChart"></canvas>
+      </div>
+      <div class="chart-legend">
+        <span class="legend-item spot"><i></i>现货·伦敦金</span>
+        <span class="legend-item comex"><i></i>期货·COMEX</span>
+        <span class="legend-item sge"><i></i>期货·沪金AU0</span>
+        ${getRecords().some(r => r.type === 'buy') ? '<span class="legend-item buy"><i></i>买入</span>' : ''}
+        ${getRecords().some(r => r.type === 'sell') ? '<span class="legend-item sell"><i></i>卖出</span>' : ''}
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn-primary" id="btnAdd">记一笔</button>
+      <button class="btn btn-secondary" id="btnRefresh">刷新金价</button>
+    </div>
+    <div class="action-bar">
+      <button class="btn btn-secondary auto-refresh-btn" id="btnAutoRefresh">
+        自动刷新：${formatInterval(getAutoRefreshInterval())}
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="section-title">
+        <span>最近记录</span>
+        <span class="more" id="btnMore">查看全部 ></span>
+      </div>
+      ${records.length === 0 ? '<div class="empty-state">暂无交易记录，点击"记一笔"添加</div>' : records.map(item => `
+        <div class="record-item" data-id="${item.id}">
+          <div class="record-left">
+            <div class="record-type ${item.type === 'buy' ? 'type-buy' : 'type-sell'}">${item.type === 'buy' ? '买入' : '卖出'}</div>
+            <div class="record-info">
+              <span class="record-date">${item.date}</span>
+              ${item.remark ? `<span class="record-remark">${item.remark}</span>` : ''}
+            </div>
+          </div>
+          <div class="record-right">
+            <span class="record-weight">${item.weight}g</span>
+            <span class="record-price">¥${item.price}/g</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `
+
+  document.getElementById('priceCard').addEventListener('click', editPrice)
+  document.getElementById('btnAdd').addEventListener('click', () => switchTab('add'))
+  document.getElementById('btnMore').addEventListener('click', () => switchTab('records'))
+  document.getElementById('btnRefresh').addEventListener('click', refreshPrice)
+  document.getElementById('btnAutoRefresh').addEventListener('click', setAutoRefresh)
+  document.querySelectorAll('#chartPeriod .period-item').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('#chartPeriod .period-item').forEach(item => item.classList.remove('active'))
+      el.classList.add('active')
+      renderChart(parseInt(el.dataset.period))
+    })
+  })
+  document.querySelectorAll('.record-item').forEach(el => {
+    el.addEventListener('click', () => {
+      editingId = el.dataset.id
+      switchTab('add')
+    })
+  })
+
+  renderChart(30)
+}
+
+async function refreshPrice() {
+  const btn = document.getElementById('btnRefresh')
+  btn.innerHTML = '<span class="loading"></span>刷新中'
+  await fetchGoldPrice()
+  renderHome()
+}
+
+async function loadHistoryData() {
+  try {
+    // 沪金AU0 先到先画图，伦敦金现货/COMEX 加载完成后补画，避免"只显示一条线"的等待窗口
+    const auP = fetchWithRetry(fetchAuHistory).catch(() => null)
+    const londonP = fetchWithRetry(fetchLondonHistory).catch(() => null)
+    const comexP = fetchWithRetry(fetchComexHistory).catch(() => null)
+    auHistoryData = await auP
+    if (currentPage === 'home') renderChart(30)
+    londonHistoryData = await londonP
+    if (currentPage === 'home') renderChart(30)
+    comexHistoryData = await comexP
+    if (currentPage === 'home') renderChart(30)
+  } catch (err) {
+    console.error('History load failed:', err)
+  }
+}
+
+// 供外壳在切换到"投资助手"标签时调用，强制图表按可见尺寸重绘
+window.__onInvestVisible = function () {
+  if (currentPage === 'home' && auHistoryData) {
+    const active = document.querySelector('#chartPeriod .period-item.active')
+    renderChart(active ? parseInt(active.dataset.period) : 30)
+  }
+}
+
 function renderChart(period = 30) {
   const canvas = document.getElementById('priceChart')
   if (!canvas) return
   if (!auHistoryData) {
+    // 数据加载失败：在 canvas 上画友好提示，不直接空白
     const ctx = canvas.getContext('2d')
     const w = canvas.width, h = canvas.height
     ctx.clearRect(0, 0, w, h)

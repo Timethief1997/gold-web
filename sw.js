@@ -1,5 +1,5 @@
 /* 黄金看板 Service Worker：离线缓存应用外壳，行情数据走网络 */
-const CACHE = 'gold-dash-v2'
+const CACHE = 'gold-dash-v3'
 const SHELL = [
   './',
   './index.html',
