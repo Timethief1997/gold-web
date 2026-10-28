@@ -1,0 +1,38 @@
+name: Fetch Gold History
+
+on:
+  schedule:
+    # 每天 UTC 00:05 (北京时间 08:05)
+    - cron: '5 0 * * *'
+  workflow_dispatch:  # 也可以手动触发
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch from Sina
+        run: |
+          # 沪金 AU0
+          curl -s "https://stock.finance.sina.com.cn/futures/api/jsonp.php/callback=/InnerFuturesNewService.getDailyKLine?symbol=AU0" > data/sge-history.json || true
+          # 伦敦金 XAU
+          curl -s "https://stock.finance.sina.com.cn/futures/api/jsonp.php/callback=/GlobalFuturesService.getGlobalFuturesDailyKLine?symbol=XAU" > data/london-history.json || true
+          # COMEX GC
+          curl -s "https://stock.finance.sina.com.cn/futures/api/jsonp.php/callback=/GlobalFuturesService.getGlobalFuturesDailyKLine?symbol=GC" > data/comex-history.json || true
+
+      - name: Commit & Push
+        run: |
+          mkdir -p data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "自动更新历史K线数据 $(date +%Y-%m-%d)"
+            git push
+          fi

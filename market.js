@@ -582,6 +582,7 @@ function loadSinaJsonp(url, varName) {
 // 因此同时发起 fetch 请求——若 fetch 能绕过 CORS 则优先用 fetch 结果
 async function fetchSinaHistory(url, varName, fieldMap) {
   const source = url.includes('AU0') ? '沪金AU0' : url.includes('XAU') ? '伦敦金XAU' : url.includes('GC') ? 'COMEX GC' : '未知'
+  const ghFile = url.includes('AU0') ? 'data/sge-history.json' : url.includes('XAU') ? 'data/london-history.json' : url.includes('GC') ? 'data/comex-history.json' : null
   console.log('[历史] 开始加载', source, '→', varName)
 
   const jsonpPromise = loadSinaJsonp(url, varName)
@@ -598,11 +599,33 @@ async function fetchSinaHistory(url, varName, fieldMap) {
       throw new Error('fetch parse failed')
     }),
     new Promise((_, reject) => setTimeout(() => reject(new Error('fetch 5s timeout')), 5000))
-  ]).catch(err => { console.warn('[历史] fetch 兜底失败', source, err.message); return null })
+  ]).catch(err => { console.warn('[历史] fetch 失败', source, err.message); return null })
 
   const [jsonpData, fetchData] = await Promise.all([jsonpPromise, fetchPromise])
-  console.log('[历史] 完成', source, ':', { jsonp: jsonpData ? jsonpData.length + '条' : 'null', fetch: fetchData ? fetchData.length + '条' : 'null' })
-  const data = jsonpData || fetchData
+  let data = jsonpData || fetchData
+  console.log('[历史] 新浪', source, ':', { jsonp: jsonpData ? jsonpData.length + '条' : 'null', fetch: fetchData ? fetchData.length + '条' : 'null' })
+
+  // GitHub Pages 同源静态 JSON 兜底
+  if (!data && ghFile) {
+    try {
+      console.log('[历史] 尝试 GitHub 兜底', ghFile)
+      const res = await fetch(ghFile + '?v=' + Date.now())
+      if (res.ok) {
+        const text = await res.text()
+        const cleaned = text.replace(/\/\*.*?\*\//, '').trim()
+        const match = cleaned.match(/^[^(]+\(([\s\S]*)\)/)
+        if (match) data = JSON.parse(match[1])
+        else {
+          const jsonMatch = cleaned.match(/\[.*\]/)
+          if (jsonMatch) data = JSON.parse(jsonMatch[0])
+        }
+        console.log('[历史] GitHub 兜底成功', source, data ? data.length + '条' : 'null')
+      }
+    } catch(e) {
+      console.warn('[历史] GitHub 兜底也失败', source, e.message)
+    }
+  }
+
   if (!data) throw new Error(source + ' 所有路径失败')
   return data.map(item => ({ date: item.d || item.date, close: parseFloat(item.c || item.close) }))
 }
