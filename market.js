@@ -555,13 +555,14 @@ function fmtShortDate(d) {
   return parseInt(p[1], 10) + '/' + parseInt(p[2], 10)
 }
 
-// ============ 新浪 JSONP 历史K线 ============
+// ============ 新浪历史K线（JSONP + fetch 双路兜底，手机蜂窝网兼容） ============
+// JSONP 基础函数（fetchSinaHistory 依赖）
 function loadSinaJsonp(url, varName) {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script')
     script.src = url
     script.async = true
-    const timeout = setTimeout(() => { cleanup(); reject(new Error('JSONP timeout')) }, 15000)
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('JSONP timeout')) }, 12000)
     function cleanup() {
       clearTimeout(timeout)
       if (script.parentNode) script.parentNode.removeChild(script)
@@ -577,43 +578,59 @@ function loadSinaJsonp(url, varName) {
   })
 }
 
+// 新浪 JSONP 在部分国产手机浏览器被运营商过滤（响应含 location.href 跳转广告脚本前缀）
+// 因此同时发起 fetch 请求——若 fetch 能绕过 CORS 则优先用 fetch 结果
+async function fetchSinaHistory(url, varName, fieldMap) {
+  // 并行发起 JSONP 和 fetch，谁先成功用谁
+  const jsonpPromise = loadSinaJsonp(url, varName)
+    .catch(err => { console.warn('[历史] JSONP 失败', err.message); return null })
+
+  // fetch 兜底：直接请求新浪接口（跳过 JSONP 回调，手动解析响应文本）
+  const fetchPromise = fetch(url)
+    .then(async r => {
+      const text = await r.text()
+      // 去掉新浪的广告脚本前缀 /*<script>location.href...*/
+      const cleaned = text.replace(/\/\*.*?\*\//, '').trim()
+      // 匹配 v=(...) 或 [ ... ] 数组
+      const match = cleaned.match(/^[^(]+\(([\s\S]*)\)/)
+      if (match) return JSON.parse(match[1])
+      const jsonMatch = cleaned.match(/\[.*\]/)
+      if (jsonMatch) return JSON.parse(jsonMatch[0])
+      throw new Error('fetch parse failed')
+    })
+    .catch(err => { console.warn('[历史] fetch 兜底失败', err.message); return null })
+
+  const [jsonpData, fetchData] = await Promise.all([jsonpPromise, fetchPromise])
+  const data = jsonpData || fetchData
+  if (!data) throw new Error('所有历史数据源失败（JSONP + fetch）')
+  return data.map(item => ({ date: item.d || item.date, close: parseFloat(item.c || item.close) }))
+}
+
 async function fetchSgeHistory() {
-  const varName = 'gold_sge_hist_' + Date.now()
-  const data = await loadSinaJsonp(
-    'https://stock.finance.sina.com.cn/futures/api/jsonp.php/' + varName +
+  const v = 'gold_sge_hist_' + Date.now()
+  return fetchSinaHistory(
+    'https://stock.finance.sina.com.cn/futures/api/jsonp.php/' + v +
     '=/InnerFuturesNewService.getDailyKLine?symbol=AU0',
-    varName
+    v
   )
-  return data.map(item => ({
-    date: item.d,
-    close: parseFloat(item.c)
-  }))
 }
 
 async function fetchLondonHistory() {
-  const varName = 'gold_lon_hist_' + Date.now()
-  const data = await loadSinaJsonp(
-    'https://stock.finance.sina.com.cn/futures/api/jsonp.php/' + varName +
+  const v = 'gold_lon_hist_' + Date.now()
+  return fetchSinaHistory(
+    'https://stock.finance.sina.com.cn/futures/api/jsonp.php/' + v +
     '=/GlobalFuturesService.getGlobalFuturesDailyKLine?symbol=XAU',
-    varName
+    v
   )
-  return data.map(item => ({
-    date: item.date,
-    close: parseFloat(item.close)
-  }))
 }
 
 async function fetchComexHistory() {
-  const varName = 'gold_gc_hist_' + Date.now()
-  const data = await loadSinaJsonp(
-    'https://stock.finance.sina.com.cn/futures/api/jsonp.php/' + varName +
+  const v = 'gold_gc_hist_' + Date.now()
+  return fetchSinaHistory(
+    'https://stock.finance.sina.com.cn/futures/api/jsonp.php/' + v +
     '=/GlobalFuturesService.getGlobalFuturesDailyKLine?symbol=GC',
-    varName
+    v
   )
-  return data.map(item => ({
-    date: item.date,
-    close: parseFloat(item.close)
-  }))
 }
 
 // ============ 渲染 ============
@@ -774,7 +791,29 @@ async function refreshAll() {
 // ============ 图表 ============
 function renderChart(period = 30) {
   const canvas = $('priceChart')
-  if (!canvas || !sgeHistoryData) return
+  if (!canvas) return
+  if (!sgeHistoryData) {
+    // 数据加载失败：在 canvas 上画友好提示，不直接空白
+    const ctx = canvas.getContext('2d')
+    const w = canvas.width, h = canvas.height
+    ctx.clearRect(0, 0, w, h)
+    ctx.fillStyle = '#f5f5f5'
+    ctx.fillRect(0, 0, w, h)
+    ctx.fillStyle = '#888'
+    ctx.font = '14px -apple-system, PingFang SC, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('📡 行情数据暂不可用', w / 2, h / 2 - 12)
+    ctx.fillStyle = '#aaa'
+    ctx.font = '12px -apple-system, PingFang SC, sans-serif'
+    ctx.fillText('下拉刷新或检查网络后重试', w / 2, h / 2 + 10)
+    // 也显示重试按钮容器（HTML 里已预埋）
+    const retry = document.getElementById('chartRetry')
+    if (retry) retry.style.display = 'block'
+    return
+  }
+  // 正常渲染前先隐藏重试按钮
+  const retry = document.getElementById('chartRetry')
+  if (retry) retry.style.display = 'none'
 
   const ctx = canvas.getContext('2d')
   const sgeSlice = sgeHistoryData.slice(-period)
@@ -877,17 +916,22 @@ function renderChart(period = 30) {
 async function loadHistory() {
   try {
     const [sge, london, comex] = await Promise.all([
-      fetchSgeHistory().catch(() => null),
-      fetchLondonHistory().catch(() => null),
-      fetchComexHistory().catch(() => null)
+      fetchSgeHistory().catch(err => { console.warn('[历史] 沪金AU0 失败:', err.message); return null }),
+      fetchLondonHistory().catch(err => { console.warn('[历史] 伦敦金XAU 失败:', err.message); return null }),
+      fetchComexHistory().catch(err => { console.warn('[历史] COMEX GC 失败:', err.message); return null })
     ])
     sgeHistoryData = sge
     londonHistoryData = london
     comexHistoryData = comex
+    console.log('[历史] 加载完成', {
+      sge: sge ? sge.length + '条' : 'null',
+      london: london ? london.length + '条' : 'null',
+      comex: comex ? comex.length + '条' : 'null'
+    })
     const active = document.querySelector('#chartPeriod .period-item.active')
     renderChart(active ? parseInt(active.dataset.period) : 30)
   } catch (e) {
-    console.error('History load failed:', e)
+    console.error('[历史] loadHistory 整体失败:', e)
   }
 }
 
