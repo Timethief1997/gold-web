@@ -288,11 +288,14 @@ function loadSinaJsonp(url, varName) {
 // 新浪 JSONP 在部分国产手机浏览器被运营商过滤（响应含 location.href 跳转广告脚本前缀）
 // 因此同时发起 fetch 请求——若 fetch 能绕过 CORS 则优先用 fetch 结果
 async function fetchSinaHistory(url, varName, fieldMap) {
-  const jsonpPromise = loadSinaJsonp(url, varName)
-    .catch(err => { console.warn('[历史] JSONP 失败', err.message); return null })
+  const source = url.includes('AU0') ? '沪金AU0' : url.includes('XAU') ? '伦敦金XAU' : url.includes('GC') ? 'COMEX GC' : '未知'
+  console.log('[历史] 开始加载', source, '→', varName)
 
-  const fetchPromise = fetch(url)
-    .then(async r => {
+  const jsonpPromise = loadSinaJsonp(url, varName)
+    .catch(err => { console.warn('[历史] JSONP 失败', source, err.message); return null })
+
+  const fetchPromise = Promise.race([
+    fetch(url).then(async r => {
       const text = await r.text()
       const cleaned = text.replace(/\/\*.*?\*\//, '').trim()
       const match = cleaned.match(/^[^(]+\(([\s\S]*)\)/)
@@ -300,12 +303,14 @@ async function fetchSinaHistory(url, varName, fieldMap) {
       const jsonMatch = cleaned.match(/\[.*\]/)
       if (jsonMatch) return JSON.parse(jsonMatch[0])
       throw new Error('fetch parse failed')
-    })
-    .catch(err => { console.warn('[历史] fetch 兜底失败', err.message); return null })
+    }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('fetch 5s timeout')), 5000))
+  ]).catch(err => { console.warn('[历史] fetch 兜底失败', source, err.message); return null })
 
   const [jsonpData, fetchData] = await Promise.all([jsonpPromise, fetchPromise])
+  console.log('[历史] 完成', source, ':', { jsonp: jsonpData ? jsonpData.length + '条' : 'null', fetch: fetchData ? fetchData.length + '条' : 'null' })
   const data = jsonpData || fetchData
-  if (!data) throw new Error('所有历史数据源失败（JSONP + fetch）')
+  if (!data) throw new Error(source + ' 所有路径失败')
   return data.map(item => ({
     date: item.d || item.date,
     open: parseFloat(item.o || item.open),
