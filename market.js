@@ -48,6 +48,14 @@ const MACRO_REF = {
 // 因此事件影响的是"时间段"而非"单日"。每个事件附有影响逻辑 logic，说明其传导路径。
 const GOLD_EVENTS = [
   {
+    date: '2026-10-29', window: 5,
+    events: [
+      { title: '美联储10月FOMC维持利率不变（鹰派暂停），金价先抑后扬', impact: 'bear',
+        desc: '北京时间10月29日凌晨2点，美联储10月FOMC决议维持联邦基金利率3.75%-4.00%不变，符合市场广泛预期。声明保留"未来加息仍有可能"的措辞，强调通胀仍高于2%目标、劳动力市场保持韧性，12月加息25bp概率维持在约60%-70%。金价在决议前承压测试4000美元整数关口，决议公布后一度跌破4000关口至3980附近，随后在"利空出尽"预期下回升收复4000美元/盎司，日内振幅超1.5%。',
+        logic: '决议维持利率不变本身已被充分定价，真正影响金价的是声明措辞——保留"未来加息仍有可能"→12月加息预期未降温→实际利率压力持续。但金价在决议前已连续多天下跌、从9月高点4631累计回撤约14%，4000美元整数关口有技术性买盘叠加部分空头回补，形成"利空落地"后的暂时企稳。当前金价4000-4100区间是多空关键争夺区：若后续非农+CPI仍支撑加息，4000关口终告破位下行；若数据走弱叠加央行购金持续，此处有望成为中期底部。' }
+    ]
+  },
+  {
     date: '2026-10-21', window: 3,
     events: [
       { title: '金价跌至4000美元附近，9月以来累计跌约10%，欧系资管喊话"最糟糕时期已过"', impact: 'neutral',
@@ -285,11 +293,25 @@ const GOLD_EVENTS = [
 // 注意：该库需随事件落地同步更新（已落地事件请移入 GOLD_EVENTS）。
 const UPCOMING_EVENTS = [
   {
-    date: '2026-10-28', leadDays: 8,
-    title: '美联储10月FOMC利率决议（预期"鹰派暂停"）',
-    desc: '北京时间10月29日凌晨2点公布决议。CME数据显示市场已充分定价本次维持利率不变（3.75%-4.00%），焦点在于政策声明及沃什新闻发布会对12月加息路径的表述。市场已大体计入12月再加息一次，若声明措辞偏鹰、明确保留12月加息选项，金价仍将承压；若弱化后续加息指引，金价有望修复。机构预测或有2位鹰派票委投反对票。',
+    date: '2026-11-05', leadDays: 5,
+    title: '美国10月非农就业数据',
+    desc: '市场预期10月非农新增约5-6万人（前值+2.9万），失业率预计微升至4.3%。若非农大幅超预期，将进一步强化劳动力市场韧性与12月加息预期；若不及预期，则有望缓解加息担忧，为金价提供反弹动力。',
+    impact: 'bull',
+    logic: '非农→劳动力市场韧性→12月加息预期→实际利率→金价。当前金价在4000美元关口附近盘整，市场对12月是否再加一次息高度敏感，非农是12月议息前最关键的"就业+通胀"双维度验证数据之一。'
+  },
+  {
+    date: '2026-11-13', leadDays: 6,
+    title: '美国10月CPI（通胀关键数据）',
+    desc: '市场预期10月CPI同比回落至约3.3%-3.4%（前值3.7%），核心CPI同比约2.5%（前值2.6%）。若通胀如期回落甚至超预期下行，将大幅削弱12月加息理由，金价有望迎来阶段性反弹；若反弹或超预期，则4000美元关口面临再考验。',
+    impact: 'neutral',
+    logic: 'CPI是通胀路径最直接观测→决定12月加息概率→实际利率预期→金价。9月CPI双超预期直接将金价从4300砸到4000关口，10月CPI的"回落确认"是本轮金价能否企稳反弹的分水岭。'
+  },
+  {
+    date: '2026-12-10', leadDays: 14,
+    title: '美联储12月FOMC议息会议',
+    desc: '市场已大体计入12月再加息25bp（至4.00%-4.25%）的概率约60%-70%，决议公布前1-2周将进入"鹰派/鸽派"预期博弈最激烈阶段。若非农+CPI组合仍支撑加息，金价将在加息预期压制下寻找底部；若数据走弱叠加央行购金持续，金价有望提前启动跨年反弹。',
     impact: 'bear',
-    logic: '决议落地前市场按"鹰派暂停"预期定价：维持利率不变本身偏中性，关键看声明与发布会——若偏鹰→12月加息路径加固→实际利率与美元走强→金价承压；若意外转鸽→金价修复反弹。当前市场观望情绪浓厚，金价在4000美元关口附近等待方向选择。'
+    logic: '12月议息是当前紧缩周期是否结束的关键一战。加息落地后若点阵图不再暗示后续加息，则是"利空出尽"的重要时间节点，金价有望在12月议息后迎来跨年行情。当前市场已在提前定价本次加息，预期差在于"加息是否为最后一次"。'
   }
 ]
 
@@ -1022,19 +1044,73 @@ function renderInsight(date, slice) {
   const insight = $('chartInsight')
   if (!insight) return
 
-  const active = findActiveEvents(date)   // 已发生、仍在影响期的事件
-  const pricing = findPricingEvents(date) // 正在被市场提前定价的未来事件
+  const active = findActiveEvents(date)
+  const pricing = findPricingEvents(date)
   const range = getRangeChangeDesc(date, slice)
 
-  let html = ''
-  html += `<div class="insight-title">${date} 所在区间 · 金价影响因素解读</div>`
+  function buildFactorBoard() {
+    let bullScore = 0, bearScore = 0, neutralCount = 0
+    const factorList = []
+    active.forEach(g => {
+      g.events.forEach(ev => {
+        if (ev.impact === 'bull') { bullScore += g.window; factorList.push({ dir: '多', label: ev.title.slice(0, 20), weight: g.window }) }
+        else if (ev.impact === 'bear') { bearScore += g.window; factorList.push({ dir: '空', label: ev.title.slice(0, 20), weight: g.window }) }
+        else neutralCount++
+      })
+    })
+    pricing.forEach(u => {
+      const w = Math.max(1, Math.round(u.leadDays / 3))
+      if (u.impact === 'bull') { bullScore += w; factorList.push({ dir: '多(预期)', label: u.title.slice(0, 20), weight: w }) }
+      else if (u.impact === 'bear') { bearScore += w; factorList.push({ dir: '空(预期)', label: u.title.slice(0, 20), weight: w }) }
+      else neutralCount++
+    })
+    if (slice && slice.length >= 20) {
+      const recent = slice.slice(-20)
+      const upCount = recent.slice(1).filter((p, i) => p.close >= recent[i].close).length
+      const pct = upCount / 19
+      if (pct >= 0.6) { bullScore += 2; factorList.push({ dir: '多(动量)', label: '近20日上涨天数多', weight: 2 }) }
+      else if (pct <= 0.4) { bearScore += 2; factorList.push({ dir: '空(动量)', label: '近20日下跌天数多', weight: 2 }) }
+    }
+    return { bullScore, bearScore, neutralCount, factorList }
+  }
 
-  // —— 区间价格表现 ——
+  const board = buildFactorBoard()
+  const total = board.bullScore + board.bearScore || 1
+  const bullPct = Math.round(board.bullScore / total * 100)
+
+  let html = ''
+  html += `<div class="insight-title">${date} · 金价走势原因解读</div>`
+
+  html += `<div class="insight-block"><div class="block-label">⚖️ 多空因子综合热力板</div>`
+  html += `<p>基于当前影响期内已发生事件 + 正在提前定价的未来事件 + 价格动量，量化多空力量对比：</p>`
+  html += `<div style="display:flex;align-items:center;gap:8px;margin:8px 0">
+    <span style="color:#1a8f3f;font-weight:600">多头 ${bullPct}%</span>
+    <div style="flex:1;height:14px;background:#e8e8e8;border-radius:7px;overflow:hidden;display:flex">
+      <div style="width:${bullPct}%;background:linear-gradient(90deg,#1a8f3f,#2ecc71);transition:width .5s"></div>
+      <div style="width:${100 - bullPct}%;background:linear-gradient(90deg,#e74c3c,#c0392b);transition:width .5s"></div>
+    </div>
+    <span style="color:#c0392b;font-weight:600">空头 ${100 - bullPct}%</span>
+  </div>`
+  const verdict = bullPct >= 60 ? '当前多头力量占优，金价偏强运行'
+               : bullPct <= 40 ? '当前空头力量占优，金价承压，注意风险'
+               : '多空力量相对均衡，金价大概率区间震荡，等待方向选择'
+  html += `<p style="font-weight:600;margin:6px 0 0;color:${bullPct > 50 ? '#1a8f3f' : bullPct < 50 ? '#c0392b' : '#888'}">→ ${verdict}</p>`
+  if (board.factorList.length > 0) {
+    const top = board.factorList.sort((a, b) => b.weight - a.weight).slice(0, 6)
+    html += `<p style="margin-top:8px;font-size:12px;color:#666">关键因子（按影响权重）：`
+    top.forEach(f => {
+      const cls = f.dir.includes('多') ? 'bull' : 'bear'
+      html += `<span class="insight-tag ${cls}" style="margin:2px 4px 2px 0;font-size:11px">${f.dir} · ${f.label}</span>`
+    })
+    html += `</p>`
+  }
+  html += `</div>`
+
   if (range) {
     const dir = range.changePct >= 0 ? '上涨' : '下跌'
     const strong = Math.abs(range.changePct) >= 1.5
     html += `<div class="insight-block"><div class="block-label">📊 区间表现（前 ${range.span} 个交易日）</div>`
-    html += `<p>自 <strong>${range.startDate}</strong> 至 <strong>${range.endDate}</strong>，金价${dir} <span class="${range.changePct >= 0 ? 'price-up' : 'price-down'}">${fmtSign(range.changePct)}%</span>（${fmt(range.start)} → ${fmt(range.end)} 元/克）。</p>`
+    html += `<p>自 <strong>${range.startDate}</strong> 至 <strong>${range.endDate}</strong>，金价${dir} <span class="${range.changePct >= 0 ? 'price-up' : 'price-down'}">${fmtSign(range.changePct)}%</span>（${fmt(range.start)} → ${fmt(range.end)} 美元/盎司）。期间上涨 ${range.upDays} 天、下跌 ${range.span - 1 - range.upDays} 天。</p>`
     if (strong && range.changePct < 0) {
       html += `<p>· 该区间明显下行，通常对应美元走强、美债实际收益率上行，或市场加息预期升温。</p>`
     } else if (strong && range.changePct > 0) {
@@ -1045,7 +1121,10 @@ function renderInsight(date, slice) {
     html += `</div>`
   }
 
-  // —— 已发生事件的持续影响 ——
+  html += `<div class="insight-block"><div class="block-label">🧠 近期走势原因综合解读</div>`
+  html += `<p style="line-height:1.7">${buildNarrative(date, active, pricing, range)}</p>`
+  html += `</div>`
+
   html += `<div class="insight-block"><div class="block-label">🗓 已发生事件的持续影响</div>`
   if (active.length > 0) {
     active.forEach(g => {
@@ -1062,7 +1141,6 @@ function renderInsight(date, slice) {
   }
   html += `</div>`
 
-  // —— 未来事件的预期影响 ——
   html += `<div class="insight-block"><div class="block-label">🔮 未来事件的预期影响（市场提前定价）</div>`
   if (pricing.length > 0) {
     pricing.forEach(u => {
@@ -1079,6 +1157,36 @@ function renderInsight(date, slice) {
   insight.classList.toggle('has-event', active.length > 0 || pricing.length > 0)
   insight.innerHTML = html
   insight.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+}
+
+function buildNarrative(date, active, pricing, range) {
+  const parts = []
+  if (range && Math.abs(range.changePct) >= 0.5) {
+    const trend = range.changePct > 0 ? '上行' : '下行'
+    parts.push(`近期金价呈现${trend}趋势（近${range.span}个交易日${fmtSign(range.changePct)}%），`)
+  } else {
+    parts.push(`近期金价在当前位置附近区间震荡，`)
+  }
+  const recentBear = active.filter(e => e.events[0].impact === 'bear').sort((a, b) => Math.abs(a.diff) - Math.abs(b.diff))[0]
+  const recentBull = active.filter(e => e.events[0].impact === 'bull').sort((a, b) => Math.abs(a.diff) - Math.abs(b.diff))[0]
+  const nextEvent = pricing.sort((a, b) => a.daysLeft - b.daysLeft)[0]
+  if (recentBear) {
+    const days = Math.abs(recentBear.diff)
+    parts.push(`主要受 ${recentBear.date}（${days}天前）${recentBear.events[0].title.split('，')[0]} 的影响——${recentBear.events[0].logic.split('→').slice(0, 2).join('→')}，`)
+  }
+  if (recentBull && (!recentBear || recentBull.date > recentBear.date)) {
+    parts.push(`同时 ${recentBull.date} 的${recentBull.events[0].title.split('，')[0]} 提供了一定支撑，`)
+  }
+  if (!recentBear && !recentBull) {
+    parts.push(`当前并无处于强影响窗口的已落地事件，价格更多反映市场对未来的预期，`)
+  }
+  if (nextEvent) {
+    parts.push(`市场正在提前定价 ${nextEvent.date}（${nextEvent.daysLeft}天后）的${nextEvent.title}，${nextEvent.logic.split('→').slice(0, 2).join('→')}。`)
+  } else {
+    parts.push(`短期暂无临近的预期事件，方向选择取决于宏观数据与资金面的博弈。`)
+  }
+  parts.push(`<br><span style="color:#888;font-size:12px">💡 核心框架：金价 ≈ f(实际利率, 美元指数, 央行购金, 地缘/财政风险溢价)。当前主导变量通常是"实际利率与加息预期"。</span>`)
+  return parts.join('')
 }
 
 // ============ 今日金市动态 ============
